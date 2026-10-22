@@ -173,6 +173,60 @@ begin
   end loop;
 end $$;
 
+-- ─── Permissions d'accès à l'API ─────────────────────────────────────────────
+-- À partir du 30 octobre 2026, Supabase n'accorde plus automatiquement l'accès
+-- à l'API aux nouvelles tables du schéma « public ». Sans les GRANT ci-dessous,
+-- une base recréée à partir de ce fichier répondrait « permission denied for
+-- table … » à chaque requête de l'application : les tables existeraient, les
+-- règles d'accès seraient en place, et plus rien ne fonctionnerait.
+--
+-- Ne pas confondre les deux mécanismes, qui se superposent :
+--   • GRANT décide QUI peut adresser une requête à la table ;
+--   • Row Level Security décide QUELLES LIGNES cette requête renvoie.
+-- Accorder l'accès ici n'ouvre donc rien : les règles plus haut restent seules
+-- juges du contenu, et elles exigent toutes un compte connecté.
+--
+-- « anon » (visiteur non connecté) ne reçoit volontairement AUCUN droit sur les
+-- tables. Les règles lui refusent déjà toute ligne ; ne rien lui accorder non
+-- plus met une seconde serrure sur la liste de clients et la facturation, pour
+-- le jour où une règle serait désactivée par mégarde.
+do $$
+declare t text;
+begin
+  foreach t in array array[
+    'profiles', 'clients', 'projects', 'employees', 'timesheets',
+    'materials', 'subcontractors', 'documents',
+    'quotes', 'invoices', 'payroll', 'company_settings'
+  ] loop
+    execute format('grant select, insert, update, delete on public.%I to authenticated', t);
+    -- service_role contourne les règles d'accès : il sert aux tâches
+    -- d'administration, jamais à l'application.
+    execute format('grant select, insert, update, delete on public.%I to service_role', t);
+  end loop;
+end $$;
+
+-- ─── Signe de vie, pour empêcher la mise en pause ────────────────────────────
+-- Un projet Supabase gratuit se met en pause après quelques jours sans
+-- requête, et son sous-domaine cesse alors de répondre. Une tâche planifiée
+-- (.github/workflows/supabase-keepalive.yml) appelle cette fonction chaque
+-- jour avec la clé publique, sans être connectée.
+--
+-- Une fonction plutôt qu'une lecture de table : elle oblige la base à
+-- travailler pour de vrai, sans qu'il faille accorder au visiteur non connecté
+-- le moindre droit sur les données de l'entreprise. Elle ne révèle rien.
+create or replace function public.ping()
+returns timestamptz
+language sql
+stable
+as $$
+  select now();
+$$;
+
+comment on function public.ping() is
+  'Renvoie l''heure du serveur. Sert au réveil quotidien du projet.';
+
+grant execute on function public.ping() to anon, authenticated;
+
 -- ─── Règles : profils ────────────────────────────────────────────────────────
 drop policy if exists profils_lecture on public.profiles;
 create policy profils_lecture on public.profiles
@@ -267,3 +321,12 @@ create or replace view public.projets_chantier as
 
 comment on view public.projets_chantier is
   'Projets sans les montants — destinée aux comptes chantier.';
+
+-- « security_invoker » fait appliquer les règles d'accès de la table sous-
+-- jacente au compte qui interroge la vue, et non au compte qui l'a créée.
+-- Sans cette option, une vue contourne silencieusement la sécurité des lignes.
+-- Ici la vue n'est pas encore utilisée par l'application, mais elle ne doit
+-- pas devenir une porte dérobée le jour où elle le sera.
+alter view public.projets_chantier set (security_invoker = true);
+
+grant select on public.projets_chantier to authenticated;

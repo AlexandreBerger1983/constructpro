@@ -205,6 +205,20 @@ begin
   end loop;
 end $$;
 
+-- Retire les droits que Supabase accordait automatiquement au visiteur non
+-- connecté avant le 30 octobre 2026 : sur une base créée avant cette date,
+-- « anon » détient encore SELECT, INSERT, UPDATE, DELETE, TRUNCATE,
+-- REFERENCES et TRIGGER sur chaque table — y compris les factures et la paie.
+-- Les règles d'accès les neutralisent déjà toutes, mais elles sont alors la
+-- SEULE barrière. Cette ligne remet la base dans l'état qu'aurait une base
+-- créée aujourd'hui à partir de ce fichier, et rétablit la seconde serrure.
+--
+-- Sans effet sur l'application, qui n'agit que par des comptes connectés, ni
+-- sur le réveil quotidien, qui passe par la fonction ci-dessous — le droit
+-- d'exécuter une fonction est distinct et n'est pas touché ici. « anon »
+-- conserve aussi l'usage du schéma lui-même, nécessaire à cet appel.
+revoke all on all tables in schema public from anon;
+
 -- ─── Signe de vie, pour empêcher la mise en pause ────────────────────────────
 -- Un projet Supabase gratuit se met en pause après quelques jours sans
 -- requête, et son sous-domaine cesse alors de répondre. Une tâche planifiée

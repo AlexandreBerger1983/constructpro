@@ -26,6 +26,14 @@ console.log('OK: onglet « Prix du devis rapide » ouvert')
 await page.waitForSelector('text=Tous les prix sont aux valeurs par défaut', { timeout: 5000 })
 console.log('OK: au départ, tous les prix sont aux valeurs par défaut')
 
+// Ce test raisonne en mètres carrés d'un bout à l'autre. L'écran affiche
+// désormais les pieds carrés par défaut : on choisit donc le métrique
+// explicitement, plutôt que de dépendre d'un réglage qui a déjà changé une
+// fois. Le parcours en pieds est couvert par smoke-prix-pieds.mjs.
+await page.click('button:has-text("Mètres carrés")')
+await page.waitForTimeout(500)
+console.log('OK: affichage réglé sur les mètres carrés pour ce test')
+
 // La recherche isole un article
 await page.fill('input[placeholder="Rechercher un travail…"]', 'Peinture murs')
 await page.waitForTimeout(400)

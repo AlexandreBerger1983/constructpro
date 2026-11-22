@@ -8,6 +8,10 @@ import {
   CATALOG, CATEGORIES, CATEGORY_META, CATALOG_PRICES_KEY, CATALOG_PRICE_FIELDS, catalogDefaultPrice,
 } from '../../data/estimatorCatalog'
 import { useData } from '../../store/DataContext'
+import {
+  UNITE_PIEDS_KEY, uniteAffichee, versAffichage, versMetrique, pasDeSaisie,
+  memePrix, estConvertible, formatPrixUnitaire,
+} from '../../data/affichagePrix'
 import { formatCurrency } from '../../utils/formatters'
 import { exportBackup, parseBackup, restoreBackup, backupSize } from '../../utils/backup'
 import clsx from 'clsx'
@@ -101,16 +105,33 @@ function TarifsTab() {
 function PrixCatalogueTab() {
   const [overrides, setOverrides] = useLocalStorage(CATALOG_PRICES_KEY, {})
   const [recherche, setRecherche] = useState('')
+  // Les prix restent stockés au mètre, comme le moteur de calcul et comme les
+  // devis déjà enregistrés. Seul l'affichage change : un entrepreneur d'ici
+  // pense en pieds carrés, c'est donc le mode par défaut.
+  const [enPieds, setEnPieds] = useLocalStorage(UNITE_PIEDS_KEY, true)
 
-  const valueOf = (id, field) => overrides[id]?.[field] ?? catalogDefaultPrice(id, field)
+  const uniteDe = (id) => CATALOG.find(c => c.id === id)?.unit ?? 'unité'
+
+  // Valeur montrée dans la case : le prix métrique, traduit si besoin.
+  const valueOf = (id, field) =>
+    versAffichage(overrides[id]?.[field] ?? catalogDefaultPrice(id, field), uniteDe(id), enPieds)
   const estModifie = (id, field) => overrides[id]?.[field] !== undefined
 
   const setPrix = (id, field, value) => {
-    const num = parseFloat(value)
+    const unite = uniteDe(id)
     setOverrides(o => {
       const article = { ...(o[id] ?? {}) }
-      if (value === '' || Number.isNaN(num) || num < 0 || num === catalogDefaultPrice(id, field)) delete article[field]
-      else article[field] = num
+      const metrique = versMetrique(value, unite, enPieds)
+      // On ne conserve que ce qui diffère vraiment du prix livré. La
+      // comparaison se fait sur ce que la case affiche : retaper la valeur
+      // déjà présente ne doit pas créer un « prix personnalisé » fantôme à
+      // cause d'un centième d'arrondi de conversion.
+      if (value === '' || !Number.isFinite(parseFloat(value)) || metrique < 0
+          || memePrix(metrique, catalogDefaultPrice(id, field), unite, enPieds)) {
+        delete article[field]
+      } else {
+        article[field] = metrique
+      }
       const n = { ...o }
       if (Object.keys(article).length === 0) delete n[id]
       else n[id] = article
@@ -135,9 +156,33 @@ function PrixCatalogueTab() {
         <p>
           Ce sont les prix des travaux proposés à l'étape 3 du <strong>devis rapide</strong>.
           Modifiez-les ici une seule fois et tous vos prochains devis les utiliseront. Les valeurs
-          modifiées sont surlignées. Les prix sont au <strong>mètre</strong> (m², m linéaire) ou à
-          l'unité ; l'application les convertit en pieds carrés à l'affichage.
+          modifiées sont surlignées. Changer l'unité d'affichage ci-dessous ne modifie aucun
+          prix — c'est le même montant, écrit autrement.
         </p>
+      </div>
+
+      {/* Unité d'affichage. Le stockage reste métrique quoi qu'il arrive : ce
+          sélecteur ne touche qu'à la façon d'écrire les prix. */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <span className="text-sm font-semibold text-slate-700">Afficher les prix en</span>
+        <div className="inline-flex rounded-xl border-2 border-slate-200 overflow-hidden">
+          {[[true, 'Pieds carrés (pi²)'], [false, 'Mètres carrés (m²)']].map(([valeur, label]) => (
+            <button
+              key={label}
+              onClick={() => setEnPieds(valeur)}
+              aria-pressed={enPieds === valeur}
+              className={clsx(
+                'px-4 py-2 text-sm font-semibold transition-colors',
+                enPieds === valeur ? 'bg-brand-500 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <span className="text-xs text-slate-400">
+          Les articles à l'unité, au forfait ou à l'heure ne changent pas.
+        </span>
       </div>
 
       <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -174,7 +219,12 @@ function PrixCatalogueTab() {
                   <div className="flex items-start gap-3 flex-wrap">
                     <div className="flex-1 min-w-[180px]">
                       <p className="text-sm text-slate-700">{item.label}</p>
-                      <p className="text-[11px] text-slate-400">par {item.unit}</p>
+                      <p className="text-[11px] text-slate-400">
+                        par {uniteAffichee(item.unit, enPieds)}
+                        {enPieds && estConvertible(item.unit) && (
+                          <span className="text-slate-300"> · {item.unit} à l'interne</span>
+                        )}
+                      </p>
                     </div>
                     {CATALOG_PRICE_FIELDS.map(f => {
                       const changed = estModifie(item.id, f.key)
@@ -182,7 +232,8 @@ function PrixCatalogueTab() {
                         <div key={f.key} className="flex items-center gap-1.5 flex-shrink-0">
                           <label className="text-[11px] text-slate-400 w-20 text-right">{f.label}</label>
                           <input
-                            type="number" min="0" step="0.5" inputMode="decimal"
+                            type="number" min="0" step={pasDeSaisie(item.unit, enPieds)} inputMode="decimal"
+                            aria-label={`${f.label} — ${item.label}`}
                             value={valueOf(item.id, f.key)}
                             onChange={e => setPrix(item.id, f.key, e.target.value)}
                             onFocus={e => e.target.select()}
@@ -201,7 +252,7 @@ function PrixCatalogueTab() {
                           onClick={() => setPrix(item.id, f.key, '')}
                           className="text-[11px] text-slate-400 hover:text-slate-600 underline"
                         >
-                          {f.label} — défaut {formatCurrency(catalogDefaultPrice(item.id, f.key))}
+                          {f.label} — défaut {formatPrixUnitaire(versAffichage(catalogDefaultPrice(item.id, f.key), item.unit, enPieds))} / {uniteAffichee(item.unit, enPieds)}
                         </button>
                       ))}
                     </div>

@@ -72,12 +72,14 @@ export function tradeForQuestion(questionId) {
   return null // → ventilation Menuiserie / Matériel
 }
 
+import { montantLigne, repartitionLigne } from './tarification.js'
+
 const num = (v) => parseFloat(v) || 0
 
-// Montant d'une ligne, plancher « Montant Minimum » compris.
+// Montant d'une ligne. Délègue à src/data/tarification.js, seule source de la
+// règle : surface, forfait petit / moyen / gros, ou prix minimum.
 export function lineAmount(line) {
-  const brut = num(line.qty) * (num(line.unitMat) + num(line.unitLabor))
-  return +Math.max(brut, num(line.min)).toFixed(2)
+  return montantLigne(line)
 }
 
 // Ventilation par corps de métier. Une ligne sans corps de métier explicite
@@ -91,9 +93,9 @@ export function tradeBreakdown(items) {
     if (total === 0) continue
     const trade = line.trade ?? tradeForQuestion(line.questionId)
     if (trade && trade in out) { out[trade] += total; continue }
-    const qty = num(line.qty)
-    const mat = qty * num(line.unitMat)
-    const lab = qty * num(line.unitLabor)
+    // Un forfait n'a pas de prix unitaires à ventiler : la répartition est
+    // calculée par tarification.js, au prorata des prix de l'article.
+    const { materiel: mat, mo: lab } = repartitionLigne(line)
     const brut = mat + lab
     if (brut <= 0) { out.menuiserie += total; continue }
     // Prorata : préserve le plancher tout en gardant la répartition M.O./mat.

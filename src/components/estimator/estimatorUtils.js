@@ -3,6 +3,8 @@
 // l'utilisateur) mais toujours converties en mètres pour le calcul des
 // quantités, car les prix du catalogue sont au m².
 
+import { montantLigne, repartitionLigne } from '../../data/tarification.js'
+
 export const FT_TO_M = 0.3048
 
 export const toMeters = (value, unit) => {
@@ -87,17 +89,10 @@ export const autoQtyForItem = (catalogItem, roomCalc) => {
   return +(val * qtyFactor(catalogItem)).toFixed(1)
 }
 
-// Montant d'une ligne. Reprend la formule du gabarit Excel :
-//   MAX(quantité × coût unitaire ; montant minimum)
-// Le montant minimum est un prix plancher (colonne « Montant Minimum » de la
-// feuille « Calcul des coûts ») : il s'applique dès que la ligne est incluse.
-export const lineTotal = (item) => {
-  const q = parseFloat(item.qty) || 0
-  const mat = parseFloat(item.unitMat) || 0
-  const lab = parseFloat(item.unitLabor) || 0
-  const min = parseFloat(item.min) || 0
-  return +Math.max(q * (mat + lab), min).toFixed(2)
-}
+// Montant d'une ligne. La règle vit dans src/data/tarification.js, qui en est
+// la seule source : la même formule existait ici ET dans quoteCosting.js, deux
+// copies qui devaient rester d'accord sans que rien ne le garantisse.
+export const lineTotal = (item) => montantLigne(item)
 
 // Taux « Admin et Profit » du gabarit Excel (feuille Calcul des coûts, D17).
 export const DEFAULT_ADMIN_PROFIT_PCT = 20
@@ -116,8 +111,12 @@ export const adminProfitPctOf = (settings = {}) => {
 // Calcul complet du devis à partir des items et des paramètres
 export const computeTotals = (items, settings) => {
   const subtotal = +items.reduce((s, it) => s + lineTotal(it), 0).toFixed(2)
-  const matTotal = items.reduce((s, it) => s + (parseFloat(it.qty) || 0) * (parseFloat(it.unitMat) || 0), 0)
-  const laborTotal = items.reduce((s, it) => s + (parseFloat(it.qty) || 0) * (parseFloat(it.unitLabor) || 0), 0)
+  // Répartition passée par tarification.js : un forfait n'a pas de prix
+  // unitaires à multiplier, et ces deux totaux doivent rester cohérents avec
+  // le sous-total, qui les inclut.
+  const parts = items.map(repartitionLigne)
+  const matTotal = parts.reduce((s, p) => s + p.materiel, 0)
+  const laborTotal = parts.reduce((s, p) => s + p.mo, 0)
   const adminProfitPct = adminProfitPctOf(settings)
   const adminProfit = +(subtotal * adminProfitPct / 100).toFixed(2)
   const pretax = +(subtotal + adminProfit).toFixed(2)

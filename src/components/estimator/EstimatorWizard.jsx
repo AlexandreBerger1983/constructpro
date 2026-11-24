@@ -23,6 +23,7 @@ import { questionnaireForRoom, defaultRates, RATES_KEY } from '../../data/roomQu
 import { readStorage } from '../../hooks/useLocalStorage'
 import { QUOTE_VALIDITY_DAYS } from '../../data/legalTerms'
 import { costSummary, ADMIN_PROFIT_PCT } from '../../data/quoteCosting'
+import { MODE_SURFACE, modesDisponibles, estForfait } from '../../data/tarification'
 import { assurerClient } from '../../data/clientsAuto'
 import AvisNouveauClient from './AvisNouveauClient'
 import CostSummary from './CostSummary'
@@ -414,12 +415,25 @@ function StepWorks({ draft, update }) {
       qty: res && res.qty > 0 ? String(res.qty) : '1',
       unitMat: String(res ? res.unitMat : catalogItem.unitMat),
       unitLabor: String(res ? res.unitLabor : catalogItem.unitLabor),
+      // Montants fixes de l'article, copiés sur la ligne comme les prix
+      // unitaires : un devis enregistré garde les prix en vigueur au moment
+      // où il a été monté, même si les Paramètres changent ensuite.
+      forfaitPetit: catalogItem.forfaitPetit ?? 0,
+      forfaitMoyen: catalogItem.forfaitMoyen ?? 0,
+      forfaitGros: catalogItem.forfaitGros ?? 0,
+      min: catalogItem.min ?? 0,
+      mode: MODE_SURFACE,
       basis: mesurable ? BASE_PIECE : null,
     }])
   }
 
   const updateItemQty = (id, qty) =>
     update('items', items.map(it => it.id === id ? { ...it, qty } : it))
+
+  // Comment cette ligne se chiffre : à la surface, ou à l'un des montants
+  // fixes décidés dans les Paramètres.
+  const setItemMode = (id, mode) =>
+    update('items', items.map(it => it.id === id ? { ...it, mode } : it))
 
   // Base de mesure d'un travail : toute la pièce, ou les pieds linéaires
   // (périmètre). La quantité est recalculée depuis les dimensions de la pièce
@@ -654,15 +668,50 @@ function StepWorks({ draft, update }) {
                       </button>
                     ))}
                   </div>}
+                  {/* Comment cette ligne se chiffre. Les montants fixes ne sont
+                      proposés que s'ils ont été renseignés dans les Paramètres :
+                      offrir « Gros travail » sur un article qui n'en a pas
+                      n'aurait aucun sens. */}
+                  {modesDisponibles(it).length > 1 && (
+                    <div className="mt-1.5 inline-flex flex-wrap gap-1">
+                      {modesDisponibles(it).map(m => {
+                        const actif = (it.mode ?? MODE_SURFACE) === m.cle
+                        return (
+                          <button
+                            key={m.cle}
+                            onClick={() => setItemMode(it.id, m.cle)}
+                            aria-pressed={actif}
+                            aria-label={`${m.label} — ${it.description}`}
+                            className={clsx(
+                              'px-2 py-0.5 rounded-md text-[11px] font-semibold border transition-colors',
+                              actif
+                                ? 'border-brand-500 bg-brand-500 text-white'
+                                : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'
+                            )}
+                          >
+                            {m.court}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-36">
-                    <Stepper
-                      value={it.qty}
-                      onChange={v => updateItemQty(it.id, v)}
-                      step={1}
-                      suffix={it.unit}
-                    />
+                    {estForfait(it.mode) && lineTotal(it) > 0 ? (
+                      // La superficie n'entre plus en compte : afficher un
+                      // compteur modifiable laisserait croire le contraire.
+                      <p className="h-11 flex items-center justify-center rounded-xl border-2 border-brand-200 bg-brand-50/60 text-xs font-semibold text-brand-700">
+                        Montant fixe
+                      </p>
+                    ) : (
+                      <Stepper
+                        value={it.qty}
+                        onChange={v => updateItemQty(it.id, v)}
+                        step={1}
+                        suffix={it.unit}
+                      />
+                    )}
                   </div>
                   <p className="text-sm font-bold text-slate-800 w-20 text-right">{formatCurrency(lineTotal(it))}</p>
                   <button

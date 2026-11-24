@@ -76,7 +76,20 @@ const tout = Object.fromEntries(CATALOG.map(a => [a.id, { unitMat: 1, unitLabor:
 const cTout = applyCatalogPrices(tout)
 vrai(`les ${CATALOG.length} articles du catalogue acceptent un prix personnalisé`,
   cTout.every(a => a.unitMat === 1 && a.unitLabor === 2))
-vrai('deux champs de prix modifiables par article', CATALOG_PRICE_FIELDS.length === 2)
+// Six prix par article : les deux prix unitaires, les trois forfaits et le
+// prix minimum. Ce qui compte n'est pas leur nombre mais que chacun déclare
+// s'il se convertit en pieds carrés — un forfait est un montant fixe, le
+// convertir le diviserait par dix.
+vrai('chaque champ de prix a une clé, un libellé et un groupe',
+  CATALOG_PRICE_FIELDS.every(f => f.key && f.label && f.groupe))
+vrai('chaque champ dit s’il se convertit',
+  CATALOG_PRICE_FIELDS.every(f => typeof f.converti === 'boolean'))
+vrai('seuls les deux prix unitaires se convertissent',
+  CATALOG_PRICE_FIELDS.filter(f => f.converti).map(f => f.key).join(',') === 'unitMat,unitLabor')
+vrai('les forfaits et le minimum ne se convertissent jamais',
+  CATALOG_PRICE_FIELDS.filter(f => f.groupe === 'forfait').every(f => !f.converti))
+vrai('aucune clé de prix en double',
+  new Set(CATALOG_PRICE_FIELDS.map(f => f.key)).size === CATALOG_PRICE_FIELDS.length)
 
 // ─── La sauvegarde emporte les prix personnalisés ────────────────────────────
 // (vérifié pour de vrai, fichier téléchargé à l'appui, dans

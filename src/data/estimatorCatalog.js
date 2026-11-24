@@ -451,9 +451,19 @@ export const PROJECT_TYPE_CHIPS = [
 export const CATALOG_PRICES_KEY = 'cp-catalogue-prix'
 
 // Champs de prix modifiables, dans l'ordre d'affichage de la page Paramètres.
+// Prix modifiables d'un article, et comment chacun s'affiche.
+//
+// « converti » dit si le prix dépend de la surface. Les deux prix unitaires
+// se lisent au pied carré comme au mètre carré ; les trois forfaits et le prix
+// minimum sont des MONTANTS FIXES, qui ne se convertissent pas — 350 $ pour un
+// petit travail, c'est 350 $ quelle que soit l'unité affichée à côté.
 export const CATALOG_PRICE_FIELDS = [
-  { key: 'unitMat', label: 'Matériel' },
-  { key: 'unitLabor', label: "Main-d'œuvre" },
+  { key: 'unitMat',      label: 'Matériel',      converti: true,  groupe: 'surface' },
+  { key: 'unitLabor',    label: "Main-d'œuvre",  converti: true,  groupe: 'surface' },
+  { key: 'forfaitPetit', label: 'Petit',         converti: false, groupe: 'forfait' },
+  { key: 'forfaitMoyen', label: 'Moyen',         converti: false, groupe: 'forfait' },
+  { key: 'forfaitGros',  label: 'Gros',          converti: false, groupe: 'forfait' },
+  { key: 'min',          label: 'Minimum',       converti: false, groupe: 'forfait' },
 ]
 
 const nombreOuNull = (v) => {

@@ -113,21 +113,25 @@ function PrixCatalogueTab() {
   const uniteDe = (id) => CATALOG.find(c => c.id === id)?.unit ?? 'unité'
 
   // Valeur montrée dans la case : le prix métrique, traduit si besoin.
+  // Un forfait est un montant fixe : le convertir en pieds carrés le
+  // diviserait par dix. Seuls les champs qui le déclarent se convertissent.
+  const converti = (field) =>
+    enPieds && (CATALOG_PRICE_FIELDS.find(f => f.key === field)?.converti ?? false)
   const valueOf = (id, field) =>
-    versAffichage(overrides[id]?.[field] ?? catalogDefaultPrice(id, field), uniteDe(id), enPieds)
+    versAffichage(overrides[id]?.[field] ?? catalogDefaultPrice(id, field), uniteDe(id), converti(field))
   const estModifie = (id, field) => overrides[id]?.[field] !== undefined
 
   const setPrix = (id, field, value) => {
     const unite = uniteDe(id)
     setOverrides(o => {
       const article = { ...(o[id] ?? {}) }
-      const metrique = versMetrique(value, unite, enPieds)
+      const metrique = versMetrique(value, unite, converti(field))
       // On ne conserve que ce qui diffère vraiment du prix livré. La
       // comparaison se fait sur ce que la case affiche : retaper la valeur
       // déjà présente ne doit pas créer un « prix personnalisé » fantôme à
       // cause d'un centième d'arrondi de conversion.
       if (value === '' || !Number.isFinite(parseFloat(value)) || metrique < 0
-          || memePrix(metrique, catalogDefaultPrice(id, field), unite, enPieds)) {
+          || memePrix(metrique, catalogDefaultPrice(id, field), unite, converti(field))) {
         delete article[field]
       } else {
         article[field] = metrique
@@ -228,16 +232,24 @@ function PrixCatalogueTab() {
                     </div>
                     {CATALOG_PRICE_FIELDS.map(f => {
                       const changed = estModifie(item.id, f.key)
+                      const forfait = f.groupe === 'forfait'
                       return (
                         <div key={f.key} className="flex items-center gap-1.5 flex-shrink-0">
-                          <label className="text-[11px] text-slate-400 w-20 text-right">{f.label}</label>
+                          <label className={clsx('text-[11px] text-right',
+                            forfait ? 'text-slate-400 w-14' : 'text-slate-400 w-20')}>
+                            {f.label}
+                          </label>
                           <input
-                            type="number" min="0" step={pasDeSaisie(item.unit, enPieds)} inputMode="decimal"
+                            type="number" min="0"
+                            step={forfait ? 5 : pasDeSaisie(item.unit, enPieds)}
+                            inputMode="decimal"
                             aria-label={`${f.label} — ${item.label}`}
                             value={valueOf(item.id, f.key)}
                             onChange={e => setPrix(item.id, f.key, e.target.value)}
                             onFocus={e => e.target.select()}
-                            className={clsx('input w-24 py-1 text-sm text-right', changed && 'border-amber-300 bg-amber-50/60 font-bold')}
+                            className={clsx('input py-1 text-sm text-right',
+                              forfait ? 'w-20' : 'w-24',
+                              changed && 'border-amber-300 bg-amber-50/60 font-bold')}
                           />
                           <span className="text-xs text-slate-400 w-4">$</span>
                         </div>

@@ -5,6 +5,7 @@
 // c'est enregistré alors que non.
 import { Loader2, CloudOff, RefreshCw, X } from 'lucide-react'
 import { useData } from '../../store/DataContext'
+import { diagnostic } from '../../store/messageErreur'
 
 export default function EtatDonnees() {
   const { surSupabase, chargement, erreur, effacerErreur, enregistrementEnCours, recharger } = useData()
@@ -12,23 +13,26 @@ export default function EtatDonnees() {
   if (!surSupabase) return null
 
   if (erreur) {
+    // Le titre et le conseil dépendent de ce qui a échoué. Proposer
+    // « Recharger » sur une table manquante faisait boucler : le rechargement
+    // relance la même lecture et ramène la même erreur.
+    const { titre, detail, conseil, rechargerUtile } = diagnostic(erreur)
     return (
       <div className="no-print mb-4 flex items-start gap-3 p-3.5 bg-red-50 border border-red-200 rounded-xl">
         <CloudOff size={18} className="text-red-500 flex-shrink-0 mt-0.5" />
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-red-800">Modification non enregistrée</p>
-          <p className="text-sm text-red-700 mt-0.5 break-words">{erreur}</p>
-          <p className="text-xs text-red-600/80 mt-1.5">
-            Ce qui s'affiche à l'écran n'est peut-être pas ce que contient la base.
-            Rechargez pour voir l'état réel.
-          </p>
+          <p className="text-sm font-semibold text-red-800">{titre}</p>
+          <p className="text-sm text-red-700 mt-0.5 break-words">{detail}</p>
+          <p className="text-xs text-red-600/80 mt-1.5">{conseil}</p>
         </div>
-        <button
-          onClick={recharger}
-          className="btn-secondary text-xs flex-shrink-0 border-red-200 text-red-700 hover:bg-red-100"
-        >
-          <RefreshCw size={13} /> Recharger
-        </button>
+        {rechargerUtile && (
+          <button
+            onClick={recharger}
+            className="btn-secondary text-xs flex-shrink-0 border-red-200 text-red-700 hover:bg-red-100"
+          >
+            <RefreshCw size={13} /> Recharger
+          </button>
+        )}
         <button
           onClick={effacerErreur}
           title="Masquer"

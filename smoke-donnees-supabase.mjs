@@ -27,7 +27,8 @@ await page.addInitScript(() => {
   // La fausse base doit survivre à un rechargement de page, sinon on ne peut
   // pas vérifier que la donnée revient bien de la base et non de l'écran.
   const VIDE = { clients: [], projects: [], employees: [], timesheets: [],
-                 materials: [], subcontractors: [], documents: [], quotes: [], invoices: [] }
+                 materials: [], mouvements: [], subcontractors: [], documents: [],
+                 quotes: [], invoices: [] }
   let tables
   try { tables = JSON.parse(sessionStorage.getItem('__faussebase')) || VIDE } catch { tables = VIDE }
   const sauver = () => { try { sessionStorage.setItem('__faussebase', JSON.stringify(tables)) } catch {} }

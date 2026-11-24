@@ -12,6 +12,7 @@ import {
 } from '../data/mockData'
 import { supabase, supabaseConfigure } from '../lib/supabase'
 import { chargerTout, enregistrer, supprimer, collectionsVides, remplirAvec, viderTout, baseEstVide } from './donneesSupabase'
+import { LECTURE, ECRITURE } from './messageErreur'
 
 // Magasin de données central de l'application.
 //
@@ -86,7 +87,11 @@ export function DataProvider({ children }) {
     // erreur à afficher, c'est le fonctionnement prévu. On ne signale que
     // les vraies pannes.
     const vraies = erreurs.filter(e => !/row-level security|permission denied/i.test(e))
-    setErreur(vraies.length ? `Chargement partiel — ${vraies.join(' · ')}` : null)
+    // Marqué comme une panne de LECTURE : le bandeau doit dire qu'il manque des
+    // données, pas qu'une modification a été perdue — rien n'a été modifié.
+    setErreur(vraies.length
+      ? { texte: `Chargement partiel — ${vraies.join(' · ')}`, type: LECTURE }
+      : null)
     setChargement(false)
   }, [])
 
@@ -113,9 +118,9 @@ export function DataProvider({ children }) {
     setEnregistrementEnCours(n => n + 1)
     try {
       const { erreur: e } = await travail()
-      if (e) setErreur(e)
+      if (e) setErreur({ texte: e, type: ECRITURE })
     } catch (ex) {
-      setErreur(`Enregistrement impossible : ${ex?.message ?? ex}`)
+      setErreur({ texte: `Enregistrement impossible : ${ex?.message ?? ex}`, type: ECRITURE })
     } finally {
       setEnregistrementEnCours(n => Math.max(0, n - 1))
     }
@@ -162,7 +167,7 @@ export function DataProvider({ children }) {
     setEnregistrementEnCours(n => n + 1)
     const { erreur: e } = await remplirAvec(seed())
     setEnregistrementEnCours(n => Math.max(0, n - 1))
-    if (e) { setErreur(e); return { erreur: e } }
+    if (e) { setErreur({ texte: e, type: ECRITURE }); return { erreur: e } }
     await recharger()
     return {}
   }, [recharger])
@@ -172,7 +177,7 @@ export function DataProvider({ children }) {
     setEnregistrementEnCours(n => n + 1)
     const { erreur: e } = await viderTout()
     setEnregistrementEnCours(n => Math.max(0, n - 1))
-    if (e) { setErreur(e); return { erreur: e } }
+    if (e) { setErreur({ texte: e, type: ECRITURE }); return { erreur: e } }
     await recharger()
     return {}
   }, [recharger])
@@ -182,7 +187,8 @@ export function DataProvider({ children }) {
   // l'entreprise par des exemples.
   const resetToSeed = () => {
     if (supabaseConfigure) {
-      setErreur("Les données de démonstration ne peuvent pas être remises quand la base de données est branchée.")
+      setErreur({ type: ECRITURE,
+        texte: "Les données de démonstration ne peuvent pas être remises quand la base de données est branchée." })
       return
     }
     appliquer(() => seed())

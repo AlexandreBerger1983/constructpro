@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Printer, Send, CheckCircle, Pencil, Save, X, Plus, Trash2, FileSpreadsheet, FileText } from 'lucide-react'
+import { ArrowLeft, Printer, Send, CheckCircle, Pencil, Save, X, Plus, Trash2, FileSpreadsheet, FileText, Eye, EyeOff } from 'lucide-react'
 import { useData } from '../../store/DataContext'
 import { formatCurrency, formatDate, statusColor } from '../../utils/formatters'
 import { useLocalStorage, readStorage } from '../../hooks/useLocalStorage'
@@ -8,6 +8,7 @@ import { SAVED_KEY } from '../estimator/estimatorUtils'
 import { SETTINGS_KEY, DEFAULT_COMPANY_SETTINGS } from '../../data/settingsDefaults'
 import QuoteLegalFooter from './QuoteLegalFooter'
 import { assurerClient } from '../../data/clientsAuto'
+import { MENTION_SANS_PRIX, estSansPrix } from '../../data/tarification'
 import clsx from 'clsx'
 
 // Totaux calculés à partir des lignes (ou du sous-total manuel si aucune ligne)
@@ -69,6 +70,14 @@ export default function QuoteDetail() {
     remove('quotes', quote.id)
     navigate('/soumissions')
   }
+
+  // Montrer ou cacher le chiffrage d'une ligne. Le montant reste dans le
+  // total : seul son affichage change.
+  const basculerPrix = (itemId) =>
+    setForm(f => ({
+      ...f,
+      items: f.items.map(it => it.id === itemId ? { ...it, sansPrix: !it.sansPrix } : it),
+    }))
 
   const removeItem = (itemId) =>
     setForm(f => ({ ...f, items: f.items.filter(it => it.id !== itemId) }))
@@ -374,7 +383,7 @@ export default function QuoteDetail() {
                             onChange={e => setItem(item.id, 'unit', e.target.value)}
                             className="input py-1 text-xs w-20 text-center"
                           />
-                        ) : item.unit}
+                        ) : (estSansPrix(item) ? '' : item.unit)}
                       </td>
                       <td className="py-2.5 text-right text-slate-600">
                         {editing ? (
@@ -385,7 +394,7 @@ export default function QuoteDetail() {
                             onFocus={e => e.target.select()}
                             className="input py-1 text-sm w-20 text-right"
                           />
-                        ) : Number(item.qty).toLocaleString('fr-CA')}
+                        ) : (estSansPrix(item) ? '' : Number(item.qty).toLocaleString('fr-CA'))}
                       </td>
                       <td className="py-2.5 text-right text-slate-600">
                         {editing ? (
@@ -396,11 +405,27 @@ export default function QuoteDetail() {
                             onFocus={e => e.target.select()}
                             className="input py-1 text-sm w-24 text-right"
                           />
-                        ) : formatCurrency(item.unitPrice)}
+                        ) : (estSansPrix(item) ? '' : formatCurrency(item.unitPrice))}
                       </td>
-                      <td className="py-2.5 text-right font-semibold text-slate-800">{formatCurrency(lineTotal)}</td>
+                      <td className="py-2.5 text-right font-semibold text-slate-800">
+                        {estSansPrix(item) && !editing
+                          ? <span className="text-slate-500 font-medium italic">{MENTION_SANS_PRIX}</span>
+                          : formatCurrency(lineTotal)}
+                      </td>
                       {editing && (
-                        <td className="py-2.5 text-right">
+                        <td className="py-2.5 text-right whitespace-nowrap">
+                          <button
+                            onClick={() => basculerPrix(item.id)}
+                            className={clsx('p-1 transition-colors',
+                              item.sansPrix ? 'text-amber-500' : 'text-slate-300 hover:text-brand-500')}
+                            aria-pressed={Boolean(item.sansPrix)}
+                            aria-label={`${item.sansPrix ? 'Afficher' : 'Masquer'} le prix — ${item.description}`}
+                            title={item.sansPrix
+                              ? 'Le prix est masqué : la ligne affiche « Inclus ». Cliquez pour le remontrer.'
+                              : 'Masquer le prix de cette ligne : elle affichera « Inclus »'}
+                          >
+                            {item.sansPrix ? <EyeOff size={14} /> : <Eye size={14} />}
+                          </button>
                           <button
                             onClick={() => removeItem(item.id)}
                             className="p-1 text-slate-300 hover:text-red-400 transition-colors"

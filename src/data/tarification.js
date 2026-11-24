@@ -102,3 +102,15 @@ export function explicationMode(ligne, uniteAffichee = '') {
   if (plancher > 0 && q * unitaire < plancher) return `Montant minimum appliqué`
   return `${q} ${uniteAffichee || ligne?.unit || ''} × prix unitaire`.trim()
 }
+
+// ─── Lignes sans prix affiché ───────────────────────────────────────────────
+// Certaines lignes se montrent au client sans leur chiffrage : le travail est
+// annoncé, son prix ne l'est pas. Le montant continue de compter dans le
+// total — c'est seulement son affichage qui change.
+//
+// « Inclus » plutôt qu'une case vide : une case vide se lit comme un oubli, et
+// le client se demande s'il doit payer. Le mot dit que c'est compris dans le
+// prix d'ensemble.
+export const MENTION_SANS_PRIX = 'Inclus'
+
+export const estSansPrix = (ligne) => Boolean(ligne?.sansPrix)

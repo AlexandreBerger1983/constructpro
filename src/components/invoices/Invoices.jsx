@@ -110,7 +110,7 @@ export default function Invoices() {
   const totalRetard = invoices.filter(i => i.status === 'En retard').reduce((s, i) => s + i.total, 0)
 
   const invoiceFields = [
-    { name: 'client', label: 'Client', type: 'select', required: true, options: ['', ...data.clients.map(c => c.name)] },
+    { name: 'client', label: 'Client', type: 'select', required: true, prerequis: 'un client dans l’écran Clients', options: ['', ...data.clients.map(c => c.name)] },
     { name: 'project', label: 'Projet (code)', type: 'select', options: ['', ...data.projects.map(p => p.code)] },
     { name: 'type', label: 'Type', type: 'select', options: ['Acompte (10%)', 'Acompte (20%)', 'Avancement (20%)', 'Avancement (25%)', 'Avancement (40%)', 'Solde final', 'Autre'], default: 'Avancement (20%)' },
     { name: 'subtotal', label: 'Montant avant taxes ($)', type: 'number', required: true, step: '100' },
@@ -148,7 +148,7 @@ export default function Invoices() {
   const markSent = (inv) => update('invoices', inv.id, { status: 'Envoyée' })
 
   const editFields = [
-    { name: 'client', label: 'Client', type: 'select', required: true, options: ['', ...data.clients.map(c => c.name)] },
+    { name: 'client', label: 'Client', type: 'select', required: true, prerequis: 'un client dans l’écran Clients', options: ['', ...data.clients.map(c => c.name)] },
     { name: 'project', label: 'Projet (code)', type: 'select', options: ['', ...data.projects.map(p => p.code)] },
     { name: 'type', label: 'Type', type: 'select', options: ['Acompte (10%)', 'Acompte (20%)', 'Avancement (20%)', 'Avancement (25%)', 'Avancement (40%)', 'Solde final', 'Autre'] },
     { name: 'subtotal', label: 'Montant avant taxes ($)', type: 'number', required: true, step: '100' },

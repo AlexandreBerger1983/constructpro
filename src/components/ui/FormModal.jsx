@@ -22,6 +22,14 @@ export default function FormModal({ title, fields, initialValues = {}, onSubmit,
 
   const set = (name, value) => setValues(v => ({ ...v, [name]: value }))
 
+  // Un menu déroulant obligatoire dont la liste est vide est un cul-de-sac :
+  // le formulaire refuse d'enregistrer et rien ne dit pourquoi. On reconnaît
+  // ce cas pour l'annoncer plutôt que de laisser l'utilisateur buter dessus.
+  const choixReels = (f) =>
+    (f.options || []).filter(o => (typeof o === 'object' ? o.value : o) !== '')
+  const champsBloquants = fields.filter(f =>
+    f.type === 'select' && f.required && choixReels(f).length === 0)
+
   const handleSubmit = (e) => {
     e.preventDefault()
     for (const f of fields) {
@@ -58,7 +66,11 @@ export default function FormModal({ title, fields, initialValues = {}, onSubmit,
               <label className="label">
                 {f.label} {f.required && <span className="text-red-400">*</span>}
               </label>
-              {f.type === 'select' ? (
+              {f.type === 'select' && f.required && choixReels(f).length === 0 ? (
+                <p className="input flex items-center text-sm text-amber-700 bg-amber-50 border-amber-200">
+                  Aucun choix disponible — créez d'abord {f.prerequis ?? `un élément « ${f.label} »`}.
+                </p>
+              ) : f.type === 'select' ? (
                 <select value={values[f.name]} onChange={e => set(f.name, e.target.value)} className="input">
                   {(f.options || []).map(o =>
                     typeof o === 'object'
@@ -93,9 +105,27 @@ export default function FormModal({ title, fields, initialValues = {}, onSubmit,
           <p className="px-5 pb-2 text-sm text-red-600">{error}</p>
         )}
 
-        <div className="flex justify-end gap-2 px-5 py-4 border-t border-slate-100 sticky bottom-0 bg-white rounded-b-2xl">
-          <button type="button" onClick={onClose} className="btn-secondary">Annuler</button>
-          <button type="submit" className="btn-primary">{submitLabel}</button>
+        <div className="px-5 py-4 border-t border-slate-100 sticky bottom-0 bg-white rounded-b-2xl space-y-3">
+          {/* Dire ce qui manque AVANT d'essayer : un bouton qui refuse sans
+              expliquer envoie chercher l'erreur au mauvais endroit. */}
+          {champsBloquants.length > 0 && (
+            <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+              Impossible d'enregistrer pour l'instant :{' '}
+              {champsBloquants.map(f => f.label.toLowerCase()).join(' et ')} —{' '}
+              {champsBloquants.length > 1 ? 'ces listes sont vides' : 'cette liste est vide'}.
+              Créez d'abord {champsBloquants.map(f => f.prerequis ?? `un « ${f.label} »`).join(' et ')}.
+            </p>
+          )}
+          <div className="flex justify-end gap-2">
+            <button type="button" onClick={onClose} className="btn-secondary">Annuler</button>
+            <button
+              type="submit"
+              disabled={champsBloquants.length > 0}
+              className="btn-primary disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {submitLabel}
+            </button>
+          </div>
         </div>
       </form>
     </div>

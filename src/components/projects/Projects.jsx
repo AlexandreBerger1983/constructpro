@@ -30,7 +30,7 @@ function ProjectList() {
 
   const projectFields = [
     { name: 'name', label: 'Nom du projet', required: true, colSpan: 2, placeholder: 'ex: Rénovation cuisine — Résidence Tremblay' },
-    { name: 'client', label: 'Client', type: 'select', required: true, options: ['', ...data.clients.map(c => c.name)] },
+    { name: 'client', label: 'Client', type: 'select', required: true, prerequis: 'un client dans l’écran Clients', options: ['', ...data.clients.map(c => c.name)] },
     { name: 'type', label: 'Type', type: 'select', options: ['Commercial', 'Résidentiel', 'Municipal', 'Institutionnel', 'Industriel'], default: 'Résidentiel' },
     { name: 'manager', label: 'Responsable', type: 'select', options: ['', ...data.employees.filter(e => e.status === 'Actif').map(e => e.name)] },
     { name: 'status', label: 'Statut', type: 'select', options: ['Planification', 'En cours', 'Soumission acceptée', 'En pause', 'Terminé'], default: 'Planification' },

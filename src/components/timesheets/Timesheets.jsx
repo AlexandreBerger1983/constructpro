@@ -32,8 +32,12 @@ export default function Timesheets() {
   }))
 
   const entryFields = [
-    { name: 'employee', label: 'Employé', type: 'select', required: true, options: ['', ...employees.filter(e => e.status === 'Actif').map(e => e.name)] },
-    { name: 'project', label: 'Projet', type: 'select', required: true, options: ['', ...data.projects.map(p => p.code)] },
+    // Cette liste ne garde que les employés ACTIFS : elle peut être vide même
+    // avec du personnel au fichier, si personne n'est actif. D'où « actif ».
+    { name: 'employee', label: 'Employé', type: 'select', required: true, prerequis: 'un employé actif dans l’écran Employés',
+      options: ['', ...employees.filter(e => e.status === 'Actif').map(e => e.name)] },
+    { name: 'project', label: 'Projet', type: 'select', required: true, prerequis: 'un projet dans l’écran Projets',
+      options: ['', ...data.projects.map(p => p.code)] },
     { name: 'date', label: 'Date', type: 'date', required: true, default: new Date().toISOString().slice(0, 10) },
     { name: 'hours', label: 'Heures', type: 'number', required: true, step: '0.5', default: 8 },
     { name: 'type', label: 'Type', type: 'select', options: ['Régulier', 'Heures supp.'], default: 'Régulier' },

@@ -40,7 +40,16 @@ Les parcours navigateur visent `http://localhost:4173/constructpro/` par
 défaut ; `APP_BASE` permet de viser ailleurs. Trois d'entre eux
 (`smoke-connexion`, `smoke-donnees-supabase`, `smoke-demonstration`)
 demandent une seconde construction avec de fausses clés Supabase, servie
-sur le port 4174, et suivent `APP_BASE_AUTH`.
+sur le port 4174, et suivent `APP_BASE_AUTH`. L'adresse factice n'est pas
+libre : ces trois parcours interceptent les appels réseau en la reconnaissant,
+et une autre adresse les fait échouer sans dire pourquoi.
+
+```bash
+VITE_SUPABASE_URL=https://exemple-local-test.supabase.co \
+VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIn0.faux \
+  npx vite build --outDir dist-auth
+npx vite preview --outDir dist-auth --port 4174 &
+```
 
 ## Démarrer
 

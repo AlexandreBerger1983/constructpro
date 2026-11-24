@@ -145,6 +145,28 @@ function QuoteList() {
             ))}
           </tbody>
         </table>
+        {/* Une table sans ligne n'affiche que ses en-têtes : rien ne dit s'il
+            n'y a aucune soumission ou si la recherche n'a rien trouvé. */}
+        {filtered.length === 0 && (
+          <div className="text-center py-12 px-4">
+            {quotes.length === 0 ? (
+              <>
+                <p className="text-slate-500 font-medium">Aucune soumission pour l'instant</p>
+                <p className="text-sm text-slate-400 mt-1">
+                  Montez un devis dans l'Estimateur : la soumission se crée toute seule.
+                </p>
+                <Link to="/estimateur" className="btn-primary mt-4 inline-flex">
+                  <Plus size={16} /> Aller à l'Estimateur
+                </Link>
+              </>
+            ) : (
+              <>
+                <p className="text-slate-500 font-medium">Aucune soumission ne correspond</p>
+                <p className="text-sm text-slate-400 mt-1">Essayez un autre terme ou un autre statut.</p>
+              </>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )

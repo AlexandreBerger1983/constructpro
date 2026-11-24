@@ -83,6 +83,25 @@ export default function Subcontractors() {
       </div>
 
       {/* Cards */}
+      {filtered.length === 0 && (
+        <div className="card text-center py-12">
+          {subcontractors.length === 0 ? (
+            <>
+              <p className="text-slate-500 font-medium">Aucun sous-traitant pour l'instant</p>
+              <p className="text-sm text-slate-400 mt-1 max-w-md mx-auto leading-relaxed">
+                Électriciens, plombiers, couvreurs… L'application suit leur licence RBQ et
+                la date d'échéance de leur assurance, et vous prévient avant qu'elle expire.
+              </p>
+              <button onClick={() => setModal('new')} className="btn-primary mt-4">
+                <Plus size={16} /> Ajouter un sous-traitant
+              </button>
+            </>
+          ) : (
+            <p className="text-slate-400 text-sm">Aucun sous-traitant ne correspond à ce filtre</p>
+          )}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {filtered.map(s => {
           const isOk = s.status === 'Approuvé'

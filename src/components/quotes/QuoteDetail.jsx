@@ -9,6 +9,7 @@ import { SETTINGS_KEY, DEFAULT_COMPANY_SETTINGS } from '../../data/settingsDefau
 import QuoteLegalFooter from './QuoteLegalFooter'
 import { assurerClient } from '../../data/clientsAuto'
 import { MENTION_SANS_PRIX, estSansPrix } from '../../data/tarification'
+import { NIVEAUX, DETAILLEE, niveauValide, lignesAAfficher } from '../../data/niveauDetail'
 import clsx from 'clsx'
 
 // Totaux calculés à partir des lignes (ou du sous-total manuel si aucune ligne)
@@ -197,6 +198,16 @@ export default function QuoteDetail() {
 
   // valeurs affichées : la copie de travail en édition, sinon la soumission
   const view = editing ? form : quote
+
+  // Le niveau vit sur la soumission : chacune se présente comme on l'a décidé
+  // pour ce client-là, et le choix se retrouve à la réouverture.
+  const niveau = niveauValide(quote.niveauDetail)
+  const changerNiveau = (n) => update('quotes', quote.id, { niveauDetail: n })
+  // En modification on montre toujours tout : on ne corrige pas ce qu'on ne
+  // voit pas. Le niveau ne s'applique qu'à la soumission telle qu'elle est lue.
+  const lignesVues = editing
+    ? view.items.map(l => ({ ...l, _detail: true }))
+    : lignesAAfficher(view.items, niveau, quote.title)
   const liveTotals = editing
     ? computeTotals(form.items.filter(it => it.description.trim() || form.items.length === 0), form.manualSubtotal)
     : { subtotal: quote.subtotal, tps: quote.tps, tvq: quote.tvq, total: quote.total }
@@ -258,6 +269,33 @@ export default function QuoteDetail() {
           <p className="mt-2 text-sm text-red-600">
             L'export n'a pas fonctionné : {exportError}. Réessayez, ou utilisez « Imprimer ».
           </p>
+        )}
+
+        {/* Niveau de détail. Hors modification seulement : on ne corrige pas
+            ce qu'on ne voit pas, donc la modification montre toujours tout. */}
+        {!editing && (
+          <div className="mt-3 flex items-center gap-3 flex-wrap">
+            <span className="text-sm font-semibold text-slate-600">Présentation :</span>
+            <div className="inline-flex rounded-xl border-2 border-slate-200 overflow-hidden">
+              {NIVEAUX.map(n => (
+                <button
+                  key={n.cle}
+                  onClick={() => changerNiveau(n.cle)}
+                  aria-pressed={niveau === n.cle}
+                  title={n.desc}
+                  className={clsx(
+                    'px-3.5 py-1.5 text-sm font-semibold transition-colors',
+                    niveau === n.cle ? 'bg-brand-500 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'
+                  )}
+                >
+                  {n.label}
+                </button>
+              ))}
+            </div>
+            <span className="text-xs text-slate-400">
+              {NIVEAUX.find(n => n.cle === niveau)?.desc} — le total ne change pas.
+            </span>
+          </div>
         )}
       </div>
 
@@ -359,8 +397,11 @@ export default function QuoteDetail() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {view.items.map((item, i) => {
-                  const lineTotal = editing
+                {lignesVues.map((item, i) => {
+                  // Une ligne groupée ou sommaire est fabriquée à
+                  // l'affichage : elle n'a pas de champ « total » enregistré,
+                  // son montant se calcule comme en modification.
+                  const lineTotal = (editing || item._detail === false)
                     ? (parseFloat(item.qty) || 0) * (parseFloat(item.unitPrice) || 0)
                     : item.total
                   return (
@@ -374,7 +415,16 @@ export default function QuoteDetail() {
                             placeholder="Description du travail"
                             className="input py-1 text-sm w-full"
                           />
-                        ) : item.description}
+                        ) : (
+                          <>
+                            {item.description}
+                            {item._nbLignes > 1 && (
+                              <span className="text-xs text-slate-400 ml-2">
+                                ({item._nbLignes} travaux)
+                              </span>
+                            )}
+                          </>
+                        )}
                       </td>
                       <td className="py-2.5 text-center text-slate-500 text-xs">
                         {editing ? (
@@ -383,7 +433,7 @@ export default function QuoteDetail() {
                             onChange={e => setItem(item.id, 'unit', e.target.value)}
                             className="input py-1 text-xs w-20 text-center"
                           />
-                        ) : (estSansPrix(item) ? '' : item.unit)}
+                        ) : (estSansPrix(item) || item._detail === false ? '' : item.unit)}
                       </td>
                       <td className="py-2.5 text-right text-slate-600">
                         {editing ? (
@@ -394,7 +444,7 @@ export default function QuoteDetail() {
                             onFocus={e => e.target.select()}
                             className="input py-1 text-sm w-20 text-right"
                           />
-                        ) : (estSansPrix(item) ? '' : Number(item.qty).toLocaleString('fr-CA'))}
+                        ) : (estSansPrix(item) || item._detail === false ? '' : Number(item.qty).toLocaleString('fr-CA'))}
                       </td>
                       <td className="py-2.5 text-right text-slate-600">
                         {editing ? (
@@ -405,7 +455,7 @@ export default function QuoteDetail() {
                             onFocus={e => e.target.select()}
                             className="input py-1 text-sm w-24 text-right"
                           />
-                        ) : (estSansPrix(item) ? '' : formatCurrency(item.unitPrice))}
+                        ) : (estSansPrix(item) || item._detail === false ? '' : formatCurrency(item.unitPrice))}
                       </td>
                       <td className="py-2.5 text-right font-semibold text-slate-800">
                         {estSansPrix(item) && !editing

@@ -1332,6 +1332,10 @@ export default function EstimatorWizard() {
       return {
         id: it.id,
         description: piece?.name ? `${piece.name} — ${it.description}` : it.description,
+        // Groupe d'appartenance, pour la présentation « Groupée » de la
+        // soumission. L'inscrire ici évite de le deviner plus tard depuis le
+        // préfixe de la description.
+        groupe: piece?.name ?? 'Travaux généraux',
         unit: it.unit || 'unité',
         qty: q > 0 ? q : 1,
         unitPrice: +(montant / (q > 0 ? q : 1)).toFixed(4),

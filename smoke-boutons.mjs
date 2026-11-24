@@ -78,16 +78,23 @@ await approveButtons.first().click()
 await page.waitForTimeout(300)
 console.log('OK: entrée de temps créée et approbation fonctionnelle')
 
-// ── Matériaux : +/- stock ──
+// ── Matériaux : le stock ne bouge QUE par un mouvement ──
+// Les anciens boutons « +1 / −1 » changeaient le stock sans dire pourquoi ni à
+// quel prix. Ils sont remplacés par une saisie de mouvement, qui laisse une
+// trace. Le parcours smoke-mouvements-stock.mjs en vérifie tout le détail.
 await page.goto(base + '/materiaux')
 await page.waitForSelector('table', { timeout: 5000 })
-const stockCell = page.locator('table tbody tr').first().locator('span.font-bold')
-const before = parseInt(await stockCell.textContent())
-await page.locator('button[aria-label="Ajouter 1"]').first().click()
-await page.waitForTimeout(300)
-const after = parseInt(await stockCell.textContent())
-if (after !== before + 1) throw new Error(`stock pas incrémenté: ${before} → ${after}`)
-console.log('OK: boutons +/- de stock fonctionnels', before, '→', after)
+const stockCell = page.locator('table tbody tr').first().locator('td').nth(5).locator('span').first()
+const before = parseFloat(await stockCell.textContent())
+await page.locator('button:has-text("Mouvement")').first().click()
+await page.waitForSelector('text=Nature du mouvement', { timeout: 5000 })
+await page.locator('.fixed input[type="number"]').first().fill('3')
+await page.waitForTimeout(400)
+await page.click('button:has-text("Enregistrer le mouvement")')
+await page.waitForTimeout(700)
+const after = parseFloat(await stockCell.textContent())
+if (after !== before - 3) throw new Error(`stock pas décrémenté de 3 : ${before} → ${after}`)
+console.log('OK: une consommation de 3 fait bien baisser le stock', before, '→', after)
 
 // ── Sous-traitants : ajouter ──
 await page.goto(base + '/sous-traitants')

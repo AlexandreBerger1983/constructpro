@@ -11,6 +11,9 @@ import { assurerClient } from '../../data/clientsAuto'
 import { MENTION_SANS_PRIX, estSansPrix } from '../../data/tarification'
 import { NIVEAUX, DETAILLEE, niveauValide, lignesAAfficher } from '../../data/niveauDetail'
 import { projetDeLaSoumission, projetsProposables, projetDepuisSoumission } from '../../data/lienProjets'
+import { devisDeLaSoumission } from '../../data/achats'
+import { consommationDuProjet } from '../../data/mouvements'
+import ListeAchat from './ListeAchat'
 import clsx from 'clsx'
 
 // Totaux calculés à partir des lignes (ou du sous-total manuel si aucune ligne)
@@ -206,6 +209,11 @@ export default function QuoteDetail() {
   // soumission : un projet peut naître de plusieurs offres, une offre ne sert
   // qu'un chantier.
   const projetLie = projetDeLaSoumission(data.projects, quote)
+  // Le devis de l'estimateur derrière cette soumission. C'est lui qui garde la
+  // ventilation matériaux / main-d'œuvre : la soumission, elle, n'a plus qu'un
+  // prix unitaire par ligne. Relu à chaque affichage plutôt que mémorisé, pour
+  // qu'une modification du devis se voie sans recharger la page.
+  const devisOrigine = devisDeLaSoumission(readStorage(SAVED_KEY, []), quote)
   const rattacher = (id) =>
     update('quotes', quote.id, { projectId: id === '' ? null : Number(id) })
   // Créer le chantier à partir de la soumission, puis l'y rattacher d'un seul
@@ -340,6 +348,21 @@ export default function QuoteDetail() {
               {NIVEAUX.find(n => n.cle === niveau)?.desc} — le total ne change pas.
             </span>
           </div>
+        )}
+
+        {/* Liste d'achat. Elle n'apparaît qu'une fois la soumission ACCEPTÉE :
+            avant, rien n'est engagé, et commander sur une offre en attente est
+            la meilleure façon de payer du matériel pour un chantier qui ne se
+            fera pas. Hors du document imprimé, évidemment : c'est la cuisine
+            interne de l'entreprise, pas une pièce pour le client. */}
+        {!editing && quote.status === 'Acceptée' && (
+          <ListeAchat
+            devis={devisOrigine}
+            quote={quote}
+            materiaux={data.materials}
+            consommation={projetLie ? consommationDuProjet(data.mouvements ?? [], projetLie.id) : null}
+            projetLie={projetLie}
+          />
         )}
       </div>
 

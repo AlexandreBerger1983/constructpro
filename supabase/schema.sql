@@ -125,6 +125,23 @@ create table if not exists public.subcontractors (
   maj_le   timestamptz not null default now()
 );
 
+-- Journal des mouvements de stock : achats, consommations de chantier,
+-- ajustements d'inventaire. Chaque ligne porte le prix figé au moment du
+-- mouvement, ce qui permet de dire ce qu'un chantier a coûté même après trois
+-- changements de prix. L'article et le chantier sont indexés : ce sont les
+-- deux seules façons dont l'application interroge ce journal.
+create table if not exists public.mouvements (
+  id             bigint primary key,
+  material_id    bigint,
+  project_id     bigint,
+  date_mouvement date,
+  donnees        jsonb not null default '{}'::jsonb,
+  maj_le         timestamptz not null default now()
+);
+
+create index if not exists mouvements_material_idx on public.mouvements (material_id);
+create index if not exists mouvements_project_idx  on public.mouvements (project_id);
+
 create table if not exists public.documents (
   id       bigint primary key,
   nom      text,
@@ -166,7 +183,7 @@ declare t text;
 begin
   foreach t in array array[
     'profiles', 'clients', 'projects', 'employees', 'timesheets',
-    'materials', 'subcontractors', 'documents',
+    'materials', 'mouvements', 'subcontractors', 'documents',
     'quotes', 'invoices', 'payroll', 'company_settings'
   ] loop
     execute format('alter table public.%I enable row level security', t);
@@ -195,7 +212,7 @@ declare t text;
 begin
   foreach t in array array[
     'profiles', 'clients', 'projects', 'employees', 'timesheets',
-    'materials', 'subcontractors', 'documents',
+    'materials', 'mouvements', 'subcontractors', 'documents',
     'quotes', 'invoices', 'payroll', 'company_settings'
   ] loop
     execute format('grant select, insert, update, delete on public.%I to authenticated', t);
@@ -256,7 +273,8 @@ do $$
 declare t text;
 begin
   foreach t in array array['clients', 'quotes', 'invoices', 'materials',
-                           'subcontractors', 'payroll', 'company_settings'] loop
+                           'mouvements', 'subcontractors', 'payroll',
+                           'company_settings'] loop
     execute format('drop policy if exists %I on public.%I', t || '_bureau', t);
     execute format(
       'create policy %I on public.%I for all using (public.est_bureau()) with check (public.est_bureau())',

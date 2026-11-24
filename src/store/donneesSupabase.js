@@ -16,7 +16,7 @@ const entier = (v) => {
 // n'y met une valeur que si elle ressemble vraiment à une date.
 const dateOuNull = (v) => (/^\d{4}-\d{2}-\d{2}/.test(String(v ?? '')) ? String(v).slice(0, 10) : null)
 
-// Les neuf collections de l'application, avec leur table et les colonnes
+// Les dix collections de l'application, avec leur table et les colonnes
 // extraites de l'objet. `colonnes` ne sert qu'aux index et aux règles d'accès —
 // la vérité reste dans `donnees`.
 export const COLLECTIONS = [
@@ -29,6 +29,14 @@ export const COLLECTIONS = [
   { cle: 'documents',      table: 'documents',      colonnes: (o) => ({ nom: texte(o.name) }) },
   { cle: 'quotes',         table: 'quotes',         colonnes: (o) => ({ numero: texte(o.number) }) },
   { cle: 'invoices',       table: 'invoices',       colonnes: (o) => ({ numero: texte(o.number) }) },
+  // Journal des mouvements de stock. L'article et le chantier sont sortis du
+  // jsonb : ce sont les deux seules façons dont on interroge ce journal, et
+  // sans index il faudrait relire tous les mouvements pour en afficher un.
+  { cle: 'mouvements',     table: 'mouvements',     colonnes: (o) => ({
+      material_id: entier(o.materialId),
+      project_id: entier(o.projectId),
+      date_mouvement: dateOuNull(o.date),
+    }) },
 ]
 
 export const collectionsVides = () =>

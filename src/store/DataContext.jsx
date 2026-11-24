@@ -38,6 +38,10 @@ const seed = () => ({
   materials: seedMaterials,
   subcontractors: seedSubcontractors,
   documents: seedDocuments,
+  // Le journal des mouvements de stock part toujours vide, même en données
+  // d'exemple : un faux historique d'achats donnerait des coûts moyens
+  // inventés, et c'est précisément ce que le journal existe pour éviter.
+  mouvements: [],
 })
 
 const DataContext = createContext(null)

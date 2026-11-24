@@ -95,6 +95,62 @@ licence RBQ, NEQ, numéros de TPS/TVQ et logo. Ces informations apparaissent
 automatiquement sur toutes les soumissions et tous les devis générés par
 l'application (plus besoin de « ConstructPro Inc. » codé en dur).
 
+## Matériaux : trois prix, jamais un seul
+
+Un article ne portait qu'un prix, à qui on demandait trois choses
+incompatibles. Les écraser l'un par l'autre réécrit le passé : si le 2×4 passe
+de 18 $ à 24 $ et qu'on remplace la valeur, un chantier chiffré le mois
+dernier affiche soudain un autre coût de matériaux, et sa marge change
+rétroactivement — sans que personne n'ait rien saisi. C'est le piège, et il
+est silencieux.
+
+| Prix | À quoi il sert | Qui le fixe |
+|---|---|---|
+| **Prix de référence** | chiffrer un devis à venir | l'entreprise, délibérément — et sa date est affichée |
+| **Prix payé** | dire ce qu'un chantier a coûté | la facture du fournisseur, figée sur le mouvement, jamais recalculée |
+| **Coût moyen pondéré** | valoriser ce qui est en stock | recalculé à chaque réception |
+
+Le coût moyen pondéré est l'une des deux méthodes que les normes comptables
+canadiennes admettent pour une PME (l'autre étant le PEPS ; le DEPS est
+interdit), et elle évite d'avoir à savoir quelle feuille de gypse vient de
+quelle livraison.
+
+**Un prix de référence est daté, et sa péremption est signalée** : au bout
+d'un mois sur les articles volatils (bois, acier, cuivre, bardeau), de trois
+mois sur les autres. Un prix de huit mois qui a l'air frais est plus dangereux
+qu'un prix visiblement périmé.
+
+### Journal des mouvements
+
+Le stock ne change que par un mouvement inscrit — **achat**, **consommation de
+chantier** ou **ajustement d'inventaire** — qui dit pourquoi et à quel prix.
+Une seule convention de signe : positif entre en stock, négatif en sort. Un
+retour de chantier est donc une consommation négative, un retour au
+fournisseur un achat négatif.
+
+Le stock **peut** devenir négatif, volontairement : si l'application dit 3 et
+que le chantier en a posé 5, refuser la saisie oblige à mentir ou à ne rien
+inscrire. Un stock négatif est signalé en rouge, pas interdit — c'est le
+décompte qui est à refaire.
+
+### Liste d'achat
+
+Une soumission **acceptée** affiche ce qu'il y a à commander, groupé par
+catégorie : la quantité de travail à couvrir dans son unité, et le budget
+matériaux prévu. Pas un nombre de feuilles ni de seaux — les prix du catalogue
+sont au mètre carré et il n'existe nulle part la nomenclature qui dirait qu'un
+mur de 48 m² demande 16 feuilles de 4×8. « 48 m² de gypse 5/8 » est d'ailleurs
+exactement ce qu'on dit au comptoir. Les quantités portent déjà le facteur de
+perte du catalogue.
+
+Elle n'apparaît qu'après acceptation : commander sur une offre en attente est
+la meilleure façon de payer du matériel pour un chantier qui ne se fera pas.
+Elle ne figure pas sur le document imprimé.
+
+Sur la fiche du chantier, le budget est comparé au réellement consommé. C'est
+le vrai livrable du suivi des prix : « budgété 310 $, sorti 356 $, +15 % » dit
+à la fois qu'un prix de référence a vieilli et si l'entreprise tient sa marge.
+
 ## Paie & Heures (CCQ)
 
 Le module **Paie & Heures** (`/paie`) reproduit fidèlement le système de

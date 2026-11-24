@@ -13,8 +13,8 @@ const vrai = (label, cond) => {
 const egal = (label, got, want) =>
   vrai(`${label} = ${JSON.stringify(got)}`, JSON.stringify(got) === JSON.stringify(want))
 
-// ─── Les neuf collections sont décrites ──────────────────────────────────────
-egal('neuf collections', COLLECTIONS.length, 9)
+// ─── Les dix collections sont décrites ───────────────────────────────────────
+egal('dix collections', COLLECTIONS.length, 10)
 vrai('chaque collection a une table et des colonnes',
   COLLECTIONS.every(c => c.cle && c.table && typeof c.colonnes === 'function'))
 vrai('les collections vides sont bien vides',
@@ -89,8 +89,8 @@ const lecture = await chargerTout(faireClient({
 }))
 egal('client chargé', lecture.donnees.clients, [{ id: 1, name: 'Alpha' }])
 egal('aucune erreur', lecture.erreurs, [])
-vrai('les neuf collections sont présentes même vides',
-  Object.keys(lecture.donnees).length === 9)
+vrai('les dix collections sont présentes même vides',
+  Object.keys(lecture.donnees).length === 10)
 
 // Une table refusée par les règles d'accès ne casse pas le reste
 const partiel = await chargerTout(faireClient({

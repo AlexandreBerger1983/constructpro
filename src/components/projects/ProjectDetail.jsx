@@ -1,8 +1,14 @@
 import { useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { ArrowLeft, MapPin, User, Calendar, CheckCircle, Circle, Clock, Phone, Mail, FileText } from 'lucide-react'
+import { ArrowLeft, MapPin, User, Calendar, CheckCircle, Circle, Clock, Phone, Mail, FileText, Package } from 'lucide-react'
 import { useData } from '../../store/DataContext'
 import { soumissionsDuProjet, totauxDesSoumissions } from '../../data/lienProjets'
+import { consommationDuProjet, coutChantier } from '../../data/mouvements'
+import { ecart } from '../../data/prixMateriaux'
+import { listeAchat, devisDeLaSoumission } from '../../data/achats'
+import { readStorage } from '../../hooks/useLocalStorage'
+import { formatPrixUnitaire } from '../../data/affichagePrix'
+import { SAVED_KEY } from '../estimator/estimatorUtils'
 import { formatCurrency, formatDate, statusColor, progressColor, budgetHealthColor } from '../../utils/formatters'
 import FormModal from '../ui/FormModal'
 import clsx from 'clsx'
@@ -198,6 +204,90 @@ export default function ProjectDetail() {
                 </Link>
               ))}
             </div>
+          </div>
+        )
+      })()}
+
+      {/* Matériaux sortis du stock pour ce chantier.
+          Au prix FIGÉ du jour de chaque sortie : c'est ce que le chantier a
+          réellement coûté, et une hausse de prix survenue depuis ne vient pas
+          le renchérir après coup. Le budget vient de la part matériaux du devis
+          derrière la soumission acceptée. */}
+      {(() => {
+        const conso = consommationDuProjet(data.mouvements ?? [], project.id)
+        if (conso.nombre === 0) return null
+        const acceptees = soumissionsDuProjet(data.quotes, project.id)
+          .filter(q => q.status === 'Acceptée')
+        const devisEnregistres = readStorage(SAVED_KEY, [])
+        const budget = acceptees.reduce((s, q) => {
+          const devis = devisDeLaSoumission(devisEnregistres, q)
+          return s + (devis ? listeAchat(devis, data.materials).budget : 0)
+        }, 0)
+        const e = ecart(budget, conso.cout)
+        const article = (id) => data.materials.find(m => String(m.id) === String(id))
+        return (
+          <div className="card p-0 overflow-hidden">
+            <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between gap-3 flex-wrap">
+              <h3 className="font-semibold text-slate-700 text-sm flex items-center gap-2">
+                <Package size={15} className="text-slate-400" />
+                Matériaux sortis pour ce chantier
+                <span className="text-slate-400 font-normal">({conso.nombre})</span>
+              </h3>
+              <p className="text-sm flex items-center gap-3 flex-wrap">
+                <span>
+                  <span className="text-slate-500">Consommé : </span>
+                  <span className="font-bold text-slate-800">{formatCurrency(conso.cout)}</span>
+                </span>
+                {budget > 0 && (
+                  <>
+                    <span className="text-slate-300">|</span>
+                    <span>
+                      <span className="text-slate-500">Budget : </span>
+                      <span className="font-semibold text-slate-600">{formatCurrency(budget)}</span>
+                    </span>
+                    <span className={clsx('font-bold', e.montant > 0 ? 'text-red-600' : 'text-emerald-600')}>
+                      {e.montant > 0 ? '+' : ''}{formatCurrency(e.montant)}
+                      {e.pct != null && ` (${e.pct > 0 ? '+' : ''}${e.pct} %)`}
+                    </span>
+                  </>
+                )}
+              </p>
+            </div>
+            <div className="divide-y divide-slate-50">
+              {conso.mouvements.slice(0, 12).map(m => {
+                const a = article(m.materialId)
+                const retour = m.qty > 0
+                return (
+                  <div key={m.id} className="flex items-center gap-3 px-5 py-2.5 text-sm">
+                    <span className="text-xs text-slate-400 w-20 flex-shrink-0">{formatDate(m.date)}</span>
+                    <span className="min-w-0 flex-1 truncate text-slate-700">
+                      {a?.name ?? '— article supprimé —'}
+                      {retour && <span className="text-emerald-600 text-xs"> · retour au stock</span>}
+                      {m.note && <span className="text-slate-400 text-xs"> · {m.note}</span>}
+                    </span>
+                    <span className="text-xs text-slate-500 w-24 text-right flex-shrink-0">
+                      {Math.abs(m.qty)} {a?.unit ?? ''} × {formatPrixUnitaire(m.prixUnitaire)}
+                    </span>
+                    <span className={clsx('font-semibold w-20 text-right flex-shrink-0',
+                      retour ? 'text-emerald-600' : 'text-slate-800')}>
+                      {formatCurrency(coutChantier(m))}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+            {conso.mouvements.length > 12 && (
+              <p className="text-xs text-slate-400 px-5 py-2.5 border-t border-slate-50">
+                12 sorties les plus récentes sur {conso.mouvements.length} — le détail complet
+                est dans le journal de l'écran Matériaux.
+              </p>
+            )}
+            {budget === 0 && (
+              <p className="text-xs text-slate-400 px-5 py-2.5 border-t border-slate-50">
+                Aucun budget matériaux à comparer : il vient du devis derrière une soumission
+                acceptée rattachée à ce chantier.
+              </p>
+            )}
           </div>
         )
       })()}

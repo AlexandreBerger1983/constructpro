@@ -15,6 +15,7 @@ import {
   DRAFT_KEY, SAVED_KEY, emptyDraft, draftFromQuote, computeRoom, autoQtyForItem,
   lineTotal, computeTotals, nextQuoteNumber, fromMeters,
   applyMeasureBasis, basisUnit, qtyFactor, BASE_PIECE, BASE_LINEAIRE,
+  typesDepuis, basculerType, aLeType,
 } from './estimatorUtils'
 import Stepper from './Stepper'
 import RoomQuestionnaire from './RoomQuestionnaire'
@@ -130,7 +131,7 @@ function StepClient({ draft, update }) {
               key={cl.id}
               onClick={() => pickExisting(cl)}
               className={clsx(
-                'w-full card flex items-center gap-3 py-4 text-left transition-all',
+                'w-full card flex items-start gap-3 py-4 text-left transition-all',
                 c.clientId === cl.id ? 'border-2 border-brand-500 bg-brand-50/50' : 'hover:border-slate-300'
               )}
             >
@@ -142,7 +143,17 @@ function StepClient({ draft, update }) {
               </div>
               <div className="min-w-0">
                 <p className="font-semibold text-slate-800 truncate">{cl.name}</p>
-                <p className="text-xs text-slate-500 truncate">{cl.contact} · {cl.phone}</p>
+                {/* Seuls les champs renseignés sont montrés : joindre les
+                    valeurs sans filtrer laissait un « · » orphelin sous le nom
+                    d'un client sans contact ni téléphone. */}
+                {[cl.contact, cl.phone, cl.email].filter(Boolean).length > 0 && (
+                  <p className="text-xs text-slate-500 truncate">
+                    {[cl.contact, cl.phone, cl.email].filter(Boolean).join(' · ')}
+                  </p>
+                )}
+                {cl.address && (
+                  <p className="text-xs text-slate-400 leading-snug">{cl.address}</p>
+                )}
               </div>
             </button>
           ))}
@@ -152,24 +163,37 @@ function StepClient({ draft, update }) {
       {/* Type de travaux */}
       {(c.name || c.clientId) && (
         <div>
-          <p className="text-sm font-semibold text-slate-700 mb-3 text-center">Quel genre de travaux ?</p>
+          <p className="text-sm font-semibold text-slate-700 mb-1 text-center">Quel genre de travaux ?</p>
+          <p className="text-xs text-slate-400 mb-3 text-center">
+            Plusieurs choix possibles — un chantier tient rarement dans une seule case
+          </p>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-            {PROJECT_TYPE_CHIPS.map(t => (
-              <button
-                key={t.label}
-                onClick={() => update('projectType', t.label)}
-                className={clsx(
-                  'flex items-center gap-2.5 px-4 py-3.5 rounded-xl border-2 text-sm font-semibold transition-all',
-                  draft.projectType === t.label
-                    ? 'border-brand-500 bg-brand-50 text-brand-700 shadow-sm'
-                    : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
-                )}
-              >
-                <span className="text-xl">{t.emoji}</span>
-                <span className="truncate">{t.label}</span>
-              </button>
-            ))}
+            {PROJECT_TYPE_CHIPS.map(t => {
+              const choisi = aLeType(draft.projectType, t.label)
+              return (
+                <button
+                  key={t.label}
+                  onClick={() => update('projectType', basculerType(draft.projectType, t.label))}
+                  aria-pressed={choisi}
+                  className={clsx(
+                    'flex items-center gap-2.5 px-4 py-3.5 rounded-xl border-2 text-sm font-semibold transition-all',
+                    choisi
+                      ? 'border-brand-500 bg-brand-50 text-brand-700 shadow-sm'
+                      : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                  )}
+                >
+                  <span className="text-xl">{t.emoji}</span>
+                  <span className="truncate">{t.label}</span>
+                  {choisi && <Check size={15} className="ml-auto flex-shrink-0 text-brand-500" />}
+                </button>
+              )
+            })}
           </div>
+          {typesDepuis(draft.projectType).length > 1 && (
+            <p className="text-xs text-slate-500 mt-3 text-center">
+              {typesDepuis(draft.projectType).length} genres choisis : {draft.projectType}
+            </p>
+          )}
         </div>
       )}
     </div>
@@ -857,6 +881,10 @@ function StepWorks({ draft, update }) {
 // ─── Étape 4 : Le devis ───────────────────────────────────────────────────────
 function StepQuote({ draft, update, onSave }) {
   const { rooms, items, settings, client, unit } = draft
+  const { data: donnees } = useData()
+  const ficheClient = donnees.clients.find(c => String(c.id) === String(client.clientId))
+    ?? donnees.clients.find(c => c.name === client.name)
+    ?? null
   const [showAdjust, setShowAdjust] = useState(false)
   const [companySettings] = useLocalStorage(SETTINGS_KEY, DEFAULT_COMPANY_SETTINGS)
   const totals = computeTotals(items, settings)
@@ -878,10 +906,13 @@ function StepQuote({ draft, update, onSave }) {
 
   const today = new Date().toLocaleDateString('fr-CA', { year: 'numeric', month: 'long', day: 'numeric' })
 
-  // Données remises aux exports Excel / Word, dans le format des gabarits
+  // Données remises aux exports Excel / Word, dans le format des gabarits.
+  // Le brouillon ne retient du client que son nom, son téléphone et son
+  // adresse : la personne contact et le courriel sont repris de sa fiche
+  // quand il en a une, pour que le document remis au client soit complet.
   const exportData = () => ({
     company: companySettings,
-    client,
+    client: { ...(ficheClient ?? {}), ...client },
     title: draft.projectType || 'Soumission',
     number: '',
     date: today,
@@ -1114,7 +1145,7 @@ function StepQuote({ draft, update, onSave }) {
 
         <WorkChecklist rooms={rooms} />
 
-        <QuoteLegalFooter companyName={companySettings.companyName} signatoryName={companySettings.ownerName} />
+        <QuoteLegalFooter companyName={companySettings.companyName} signatoryName={companySettings.ownerName} signataire={companySettings.signataire} />
       </div>
 
       {/* Note champ libre */}

@@ -17,6 +17,18 @@ import {
 
 const num = (v) => parseFloat(v) || 0
 
+// Police d'écriture manuscrite pour la ligne de signature. Choisie parmi
+// celles livrées avec Windows et Office : un document ouvert chez le client
+// ne doit pas dépendre d'une police installée seulement ici. Word et Excel
+// substituent proprement si elle manque.
+const POLICE_SIGNATURE = 'Segoe Script'
+
+// Nom porté sur la ligne de signature : le signataire désigné, à défaut le
+// propriétaire. Le champ « signataire » est récent — se rabattre sur le
+// propriétaire évite qu'une soumission perde sa signature en attendant.
+const nomSignature = (company = {}) =>
+  String(company.signataire || company.ownerName || '').trim()
+
 // En-tête de l'entreprise, identique sur tous les documents produits et
 // calqué sur les gabarits papier : nom, sous-titre (« Entrepreneur Général »),
 // adresse, téléphone, télécopieur, licence RBQ et NEQ.
@@ -95,6 +107,8 @@ export async function exportExcel(data) {
     line('B', `RELEVÉ DE QUANTITÉ${data.title ? ` — ${data.title}` : ''}`, { bold: true, size: 14 }); q += 2
     line('B', 'CLIENT :', { bold: true }); line('D', data.client?.name || ''); q++
     if (data.client?.address) { line('B', 'ADRESSE :', { bold: true }); line('D', data.client.address); q++ }
+    if (data.client?.phone) { line('B', 'TÉLÉPHONE :', { bold: true }); line('D', data.client.phone); q++ }
+    if (data.client?.email) { line('B', 'COURRIEL :', { bold: true }); line('D', data.client.email); q++ }
     line('B', 'DATE :', { bold: true }); line('D', data.date); q += 2
 
     if (data.laborRate > 0) {
@@ -238,8 +252,10 @@ export async function exportExcel(data) {
   r++
   put('CLIENT', { bold: true })
   put(data.client?.name || '')
+  if (data.client?.contact) put(data.client.contact)
   if (data.client?.address) put(data.client.address)
   if (data.client?.phone) put(data.client.phone)
+  if (data.client?.email) put(data.client.email)
   r++
   put(`DESCRIPTION DES TRAVAUX${data.title ? ` — ${data.title}` : ''}`, { bold: true })
 
@@ -312,7 +328,11 @@ export async function exportExcel(data) {
     for (const s of c.subItems || []) put(`      ${s}`)
   })
   r++
-  put('Par : _____________________________')
+  // Le nom signé s'écrit AU-DESSUS du trait, dans la police d'écriture, comme
+  // une signature portée à la main sur le document papier.
+  const signe = nomSignature(data.company)
+  if (signe) put(signe, { name: POLICE_SIGNATURE, size: 16 })
+  put(signe ? 'Par : ' : 'Par : _____________________________')
   put([data.company?.ownerName, data.company?.companyName].filter(Boolean).join(' — '))
   r++
   put(ACCEPTANCE_TEXT)
@@ -336,7 +356,10 @@ export async function exportWord(data) {
   } = await import('docx')
 
   const P = (text, opts = {}) => new Paragraph({
-    children: [new TextRun({ text: String(text ?? ''), bold: opts.bold, size: opts.size, italics: opts.italics })],
+    children: [new TextRun({
+      text: String(text ?? ''), bold: opts.bold, size: opts.size,
+      italics: opts.italics, font: opts.font,
+    })],
     alignment: opts.align,
     spacing: { after: opts.after ?? 60 },
   })
@@ -399,8 +422,10 @@ export async function exportWord(data) {
     P(''),
     P('CLIENT', { bold: true }),
     P(data.client?.name || ''),
+    ...(data.client?.contact ? [P(data.client.contact)] : []),
     ...(data.client?.address ? [P(data.client.address)] : []),
     ...(data.client?.phone ? [P(data.client.phone)] : []),
+    ...(data.client?.email ? [P(data.client.email)] : []),
     P(''),
     P(`DESCRIPTION DES TRAVAUX${data.title ? ` — ${data.title}` : ''}`, { bold: true }),
   ]
@@ -431,7 +456,10 @@ export async function exportWord(data) {
 
   children.push(
     P(''),
-    P('Par : _____________________________'),
+    // Comme dans l'Excel : le nom signé au-dessus du trait, en écriture.
+    ...(nomSignature(data.company)
+      ? [P(nomSignature(data.company), { font: POLICE_SIGNATURE, size: 32 }), P('Par : ')]
+      : [P('Par : _____________________________')]),
     P([data.company?.ownerName, data.company?.companyName].filter(Boolean).join(' — ')),
     P(''),
     P(ACCEPTANCE_TEXT),

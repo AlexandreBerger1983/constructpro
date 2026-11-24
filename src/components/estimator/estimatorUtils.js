@@ -186,3 +186,40 @@ export const nextQuoteNumber = (saved) => {
   const count = saved.filter(q => q.number?.includes(String(year))).length
   return `DEV-${year}-${String(count + 1).padStart(3, '0')}`
 }
+
+// ─── Genres de travaux : plusieurs choix possibles ───────────────────────────
+// Un chantier tient rarement dans une seule case : refaire une salle de bain,
+// c'est de la plomberie, de la céramique et de la peinture.
+//
+// La valeur reste stockée sous forme de TEXTE, les genres séparés par « · ».
+// C'est délibéré : le numéro de devis, le titre de la soumission, la liste des
+// devis enregistrés et les devis déjà sauvegardés lisent tous ce champ comme
+// une chaîne. Le garder tel quel évite une migration et ne casse rien de ce
+// qui existe ; seule la saisie devient multiple.
+export const SEPARATEUR_TYPES = ' · '
+
+// Texte ou tableau → tableau propre, sans doublon ni case vide.
+export const typesDepuis = (valeur) => {
+  const liste = Array.isArray(valeur)
+    ? valeur
+    : String(valeur ?? '').split(/\s*·\s*|\s*,\s*/)
+  const vus = new Set()
+  return liste
+    .map(t => String(t ?? '').trim())
+    .filter(t => t && !vus.has(t) && vus.add(t))
+}
+
+export const typesVers = (liste) => typesDepuis(liste).join(SEPARATEUR_TYPES)
+
+// Ajoute ou retire un genre, et redonne le texte à enregistrer.
+export const basculerType = (valeur, genre) => {
+  const cible = String(genre ?? '').trim()
+  if (!cible) return typesVers(valeur)
+  const actuels = typesDepuis(valeur)
+  return typesVers(actuels.includes(cible)
+    ? actuels.filter(t => t !== cible)
+    : [...actuels, cible])
+}
+
+export const aLeType = (valeur, genre) =>
+  typesDepuis(valeur).includes(String(genre ?? '').trim())

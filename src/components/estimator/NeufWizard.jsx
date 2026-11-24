@@ -17,6 +17,7 @@ import {
 import clsx from 'clsx'
 import { useData } from '../../store/DataContext'
 import { useLocalStorage, readStorage, writeStorage } from '../../hooks/useLocalStorage'
+import { SETTINGS_KEY, DEFAULT_COMPANY_SETTINGS } from '../../data/settingsDefaults'
 import { formatCurrency } from '../../utils/formatters'
 import { SAVED_KEY, nextQuoteNumber } from './estimatorUtils'
 import { QUOTE_VALIDITY_DAYS } from '../../data/legalTerms'
@@ -437,6 +438,7 @@ function EtapeDivisions({ draft, update }) {
 // ─── Étape 3 : le devis ──────────────────────────────────────────────────────
 function EtapeDevis({ draft, update, resume, divisions, exclusions, onSave }) {
   const [reglages, setReglages] = useState(false)
+  const [entreprise] = useLocalStorage(SETTINGS_KEY, DEFAULT_COMPANY_SETTINGS)
   const t = draft.taux
 
   return (
@@ -562,7 +564,8 @@ function EtapeDevis({ draft, update, resume, divisions, exclusions, onSave }) {
         </div>
       )}
 
-      <QuoteLegalFooter />
+      <QuoteLegalFooter companyName={entreprise.companyName} signatoryName={entreprise.ownerName}
+        signataire={entreprise.signataire} />
 
       <div className="grid grid-cols-2 gap-3 no-print">
         <button onClick={() => window.print()}

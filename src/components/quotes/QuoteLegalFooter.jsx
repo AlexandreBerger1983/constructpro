@@ -3,7 +3,11 @@ import { CONDITIONS_GENERALES, ACCEPTANCE_TEXT } from '../../data/legalTerms'
 // Bas de page légal identique sur tous les devis imprimés/affichés : conditions
 // générales, acceptation du client et bloc de signature — transcrits des
 // modèles de contrat papier de l'entreprise (voir src/data/legalTerms.js).
-export default function QuoteLegalFooter({ companyName, signatoryName }) {
+export default function QuoteLegalFooter({ companyName, signatoryName, signataire }) {
+  // Le nom dédié à la signature s'il est renseigné, sinon celui du
+  // propriétaire : le champ est nouveau, et une soumission ne doit pas perdre
+  // sa signature le temps qu'il soit rempli.
+  const nomSignature = (signataire || signatoryName || '').trim()
   const signatory = [signatoryName, companyName].filter(Boolean).join(' — ')
 
   return (
@@ -23,7 +27,14 @@ export default function QuoteLegalFooter({ companyName, signatoryName }) {
       </ol>
 
       <div className="pt-6">
-        <div className="w-64 border-t border-slate-300 pt-1">Par : _____________________________</div>
+        {/* La signature s'écrit AU-DESSUS du trait, comme sur le papier. Sans
+            nom renseigné, le trait reste vide pour une signature à la main. */}
+        <div className="w-64">
+          {nomSignature
+            ? <p className="signature-manuscrite pb-1 truncate">{nomSignature}</p>
+            : <p className="pb-1 text-transparent select-none" aria-hidden="true">.</p>}
+          <div className="border-t border-slate-300 pt-1">Par : {nomSignature ? '' : '_____________________________'}</div>
+        </div>
         {signatory && <p className="mt-1 text-slate-400">{signatory}</p>}
       </div>
 

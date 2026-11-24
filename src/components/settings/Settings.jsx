@@ -479,6 +479,25 @@ export default function Settings() {
               />
             </div>
             <div>
+              <label className="label">Signataire des soumissions</label>
+              <input
+                value={settings.signataire ?? ''}
+                onChange={e => update('signataire', e.target.value)}
+                placeholder={settings.ownerName || 'ex: Alexandre Berger'}
+                className="input"
+              />
+              <p className="text-xs text-slate-400 mt-1">
+                Écrit sur la ligne de signature des soumissions, du PDF, du Word et de l'Excel.
+                Vide, c'est le nom du propriétaire qui sert.
+              </p>
+              {(settings.signataire || settings.ownerName) && (
+                <div className="mt-2 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200">
+                  <p className="text-[10px] uppercase tracking-wide text-slate-400 mb-1">Aperçu</p>
+                  <p className="signature-manuscrite">{settings.signataire || settings.ownerName}</p>
+                </div>
+              )}
+            </div>
+            <div>
               <label className="label">Téléphone</label>
               <input
                 value={settings.phone}

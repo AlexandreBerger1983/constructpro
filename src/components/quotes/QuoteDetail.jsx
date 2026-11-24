@@ -32,6 +32,14 @@ export default function QuoteDetail() {
 
   if (!quote) return <div className="text-slate-500 p-8">Soumission introuvable</div>
 
+  // Coordonnées lues dans la fiche Clients plutôt que figées dans la
+  // soumission : un client qui déménage ne laisse pas derrière lui des
+  // soumissions à l'ancienne adresse. Rattachement par identifiant, et à
+  // défaut par nom, pour les soumissions antérieures au rattachement.
+  const fiche = data.clients.find(c => c.id === quote.clientId)
+    ?? data.clients.find(c => c.name === quote.client)
+    ?? null
+
   const editing = form !== null
 
   const startEdit = () => setForm({
@@ -140,7 +148,15 @@ export default function QuoteDetail() {
 
     return {
       company: settings,
-      client: { name: quote.client, address: '', phone: '' },
+      // Auparavant vides : les gabarits Excel et Word savaient afficher
+      // adresse et téléphone, mais on ne leur en donnait jamais.
+      client: {
+        name: quote.client,
+        contact: fiche?.contact ?? '',
+        address: fiche?.address ?? '',
+        phone: fiche?.phone ?? '',
+        email: fiche?.email ?? '',
+      },
       title: quote.title,
       number: quote.number,
       date: formatDate(quote.date),
@@ -306,7 +322,14 @@ export default function QuoteDetail() {
           ) : (
             <>
               <p className="font-semibold text-slate-800">{quote.client}</p>
-              <p className="text-sm font-medium text-slate-600 mt-1">{quote.title}</p>
+              {fiche?.contact && <p className="text-sm text-slate-600">{fiche.contact}</p>}
+              {fiche?.address && <p className="text-sm text-slate-600 leading-snug">{fiche.address}</p>}
+              {(fiche?.phone || fiche?.email) && (
+                <p className="text-sm text-slate-600">
+                  {[fiche.phone, fiche.email].filter(Boolean).join(' · ')}
+                </p>
+              )}
+              <p className="text-sm font-medium text-slate-600 mt-2">{quote.title}</p>
             </>
           )}
         </div>
@@ -446,7 +469,7 @@ export default function QuoteDetail() {
           </div>
         </div>
 
-        <QuoteLegalFooter companyName={settings.companyName} signatoryName={settings.ownerName} />
+        <QuoteLegalFooter companyName={settings.companyName} signatoryName={settings.ownerName} signataire={settings.signataire} />
       </div>
 
       {/* Barre d'enregistrement flottante en mode édition */}

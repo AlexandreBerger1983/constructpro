@@ -6,6 +6,9 @@ export const DEFAULT_COMPANY_SETTINGS = {
   // (« Entrepreneur Général »).
   subtitle: '',
   ownerName: '',
+  // Nom porté sur la ligne de signature des soumissions, écrit dans une
+  // police d'écriture manuscrite. À défaut, le nom du propriétaire sert.
+  signataire: '',
   address: '',
   phone: '',
   fax: '',

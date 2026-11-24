@@ -1,0 +1,203 @@
+name: Garder la base Supabase éveillée
+
+# Un projet Supabase gratuit se met en pause après quelques jours sans aucune
+# requête, et l'application cesse alors de fonctionner jusqu'à ce qu'on aille
+# le réveiller à la main dans le tableau de bord.
+#
+# Ce workflow fait une vraie lecture dans la base, ce qui suffit à la compter
+# comme active. Il tourne TOUS LES JOURS et non tous les trois : GitHub
+# n'exécute pas les tâches planifiées à la minute près et en saute lors des
+# pics de charge. Une exécution quotidienne laisse donc plusieurs jours de
+# marge même si deux ou trois passages sont ratés, pour quelques secondes de
+# calcul par jour.
+#
+# Il réutilise les secrets déjà en place pour le déploiement — rien de
+# nouveau à configurer.
+on:
+  schedule:
+    - cron: '0 11 * * *'   # 11 h UTC = 7 h heure de l'Est l'été, 6 h l'hiver
+  workflow_dispatch:        # permet aussi de le lancer à la main depuis l'onglet Actions
+
+permissions:
+  contents: read
+
+# Inutile d'empiler deux réveils en même temps.
+concurrency:
+  group: supabase-keepalive
+  cancel-in-progress: false
+
+jobs:
+  reveiller:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Interroger la base
+        env:
+          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        run: |
+          set -u
+
+          if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_ANON_KEY:-}" ]; then
+            echo "::error::Les secrets VITE_SUPABASE_URL et VITE_SUPABASE_ANON_KEY doivent être définis dans Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+
+          # Un secret collé dans GitHub emporte souvent un saut de ligne ou une
+          # espace finale. Ni une adresse ni un jeton n'en contiennent
+          # légitimement : on les retire partout, sinon curl échoue sans jamais
+          # joindre le projet — et l'en-tête d'authentification serait invalide.
+          base="$(printf '%s' "$SUPABASE_URL"      | tr -d '[:space:]')"
+          cle="$(printf  '%s' "$SUPABASE_ANON_KEY" | tr -d '[:space:]')"
+
+          # L'adresse du projet est parfois copiée avec le chemin de l'API
+          # (« https://xxxx.supabase.co/rest/v1/ »). On ne garde que la racine,
+          # sinon on interrogerait « /rest/v1/rest/v1/clients ».
+          base="${base%/}"
+          base="${base%%/rest/v1*}"
+          base="${base%/}"
+
+          # Ce que valent les secrets, sans rien en révéler : sur un dépôt
+          # public, l'adresse dévoilerait l'identifiant du projet et la clé
+          # serait utilisable telle quelle. On n'imprime donc que des faits
+          # vérifiables — longueur, forme — jamais le contenu.
+          echo "── Forme des secrets ──"
+          echo "Adresse : ${#base} caractères après nettoyage (${#SUPABASE_URL} avant)"
+          case "$base" in
+            https://*.supabase.co) echo "  • forme attendue : https://<projet>.supabase.co" ;;
+            https://*)             echo "::warning::  • commence par https:// mais ne finit pas par .supabase.co" ;;
+            http://*)              echo "::warning::  • en http:// et non https://" ;;
+            *)                     echo "::error::  • ne commence pas par https:// — ce n'est pas une adresse de projet Supabase" ;;
+          esac
+          echo "Clé     : ${#cle} caractères après nettoyage (${#SUPABASE_ANON_KEY} avant)"
+          case "$cle" in
+            eyJ*)             echo "  • jeton JWT (ancien format de clé anon)" ;;
+            sb_publishable_*) echo "  • clé publique (nouveau format)" ;;
+            sb_secret_*)      echo "::error::  • c'est une clé SECRÈTE. N'utilisez jamais autre chose que la clé publique." ; exit 1 ;;
+            *)                echo "::warning::  • format de clé non reconnu" ;;
+          esac
+
+          journal_erreur="$(mktemp)"
+          journal_code="$(mktemp)"
+
+          # `curl` écrit déjà « 000 » via --write-out quand il n'obtient aucune
+          # réponse. Il ne faut donc surtout pas en ajouter un second par un
+          # « || echo 000 » : le code deviendrait « 000000 » et ne
+          # correspondrait plus au cas prévu.
+          #
+          # On sépare deux choses que la première version confondait : le code
+          # HTTP (dans un fichier) et la raison de l'échec de curl (son code de
+          # sortie). Sans cette seconde information, « aucune réponse » ne dit
+          # pas si le nom d'hôte est introuvable, si la connexion est refusée
+          # ou si le délai est dépassé — trois causes très différentes.
+          appeler() {
+            curl --silent --show-error --max-time 25 \
+              --output /dev/null --write-out '%{http_code}' \
+              --header "apikey: $cle" \
+              --header "Authorization: Bearer $cle" \
+              "$1" >"$journal_code" 2>"$journal_erreur"
+          }
+
+          # Le message d'erreur de curl contient l'adresse visée : on ne
+          # l'imprime jamais, on n'en traduit que le code de sortie.
+          raison() {
+            case "$1" in
+              3)        echo "adresse mal formée" ;;
+              5)        echo "mandataire introuvable" ;;
+              6)        echo "nom d'hôte introuvable — le projet a peut-être été supprimé, renommé, ou l'adresse est erronée" ;;
+              7)        echo "connexion refusée" ;;
+              28)       echo "délai dépassé (25 s)" ;;
+              35|60|77) echo "problème de certificat TLS" ;;
+              52)       echo "réponse vide du serveur" ;;
+              56)       echo "connexion interrompue en cours de réception" ;;
+              *)        echo "code de sortie curl $1" ;;
+            esac
+          }
+
+          # La cible : la fonction public.ping() du schéma, appelée sans être
+          # connecté. Elle oblige la base à travailler pour de vrai, sans
+          # qu'un visiteur non connecté ait le moindre droit sur les tables de
+          # l'entreprise.
+          #
+          # Une base créée avant l'ajout de cette fonction ne la connaît pas
+          # encore : la lecture de table d'origine sert alors de repli. À
+          # partir du 30 octobre 2026, Supabase n'accorde plus l'accès à l'API
+          # aux nouvelles tables, et seul l'appel de fonction fonctionnera sur
+          # une base recréée — d'où l'ordre : la fonction d'abord.
+          cible="$base/rest/v1/rpc/ping"
+          repli="$base/rest/v1/clients?select=id&limit=1"
+          if appeler "$cible"; then :; else :; fi
+          if [ "$(cat "$journal_code")" = "404" ]; then
+            echo "public.ping() absente de cette base — repli sur une lecture de table."
+            echo "(Rejouez supabase/schema.sql pour l'ajouter.)"
+            cible="$repli"
+          fi
+
+          echo "── Interrogation ──"
+          # Trois tentatives espacées : un incident réseau passager ne doit pas
+          # faire échouer le réveil du jour.
+          for tentative in 1 2 3; do
+            if appeler "$cible"; then statut=0; else statut=$?; fi
+            code="$(cat "$journal_code")"
+            [ -n "$code" ] || code="000"
+            echo "Tentative $tentative — réponse HTTP $code"
+
+            case "$code" in
+              200|206)
+                echo "✅ La base a répondu. Elle est active pour aujourd'hui."
+                exit 0 ;;
+              401|403)
+                echo "::error::La base a répondu $code. Deux causes possibles : (1) la clé publique est refusée — vérifiez le secret VITE_SUPABASE_ANON_KEY (clé « anon public », jamais « service_role ») ; (2) les permissions d'accès à l'API manquent — depuis le 30 octobre 2026, une table recréée n'y a plus droit automatiquement. Dans ce second cas, rejouez supabase/schema.sql, qui pose les GRANT et ajoute public.ping()."
+                exit 1 ;;
+              404)
+                # La table a peut-être été renommée. La racine de l'API
+                # interroge quand même le projet : le réveil est sauvé, mais on
+                # le signale pour que la cible soit corrigée.
+                appeler "$base/rest/v1/" || true
+                racine="$(cat "$journal_code")"
+                echo "Racine de l'API — réponse HTTP ${racine:-000}"
+                if [ "$racine" = "200" ]; then
+                  echo "::warning::La table « clients » est introuvable (404), mais le projet a répondu. Corrigez la table interrogée dans ce workflow."
+                  exit 0
+                fi
+                echo "::error::La base a répondu 404 et sa racine ${racine:-000}."
+                exit 1 ;;
+              000)
+                echo "  Aucune réponse HTTP — $(raison "$statut")." ;;
+              *)
+                echo "  Réponse inattendue : $code." ;;
+            esac
+
+            # Écrit en « if » et non en « && » : sous `set -e`, une dernière
+            # itération dont le test échoue ferait sortir le script avant le
+            # message d'erreur qui suit la boucle.
+            if [ "$tentative" -lt 3 ]; then sleep $((tentative * 15)); fi
+          done
+
+          # Le projet n'a jamais répondu. On distingue alors deux situations
+          # que l'utilisateur ne peut pas démêler seul : le projet est
+          # injoignable dans son ensemble (pause, suppression, mauvaise
+          # adresse), ou seule l'API REST est en cause.
+          if [ "$code" = "000" ]; then
+            echo "── Diagnostic ──"
+            # /auth/v1/health est public : il répond sans aucune clé. S'il
+            # répond, le projet existe et est joignable — le problème vient
+            # d'ailleurs. S'il ne répond pas non plus, le projet est hors
+            # service ou l'adresse est fausse.
+            if curl --silent --show-error --max-time 20 --output /dev/null \
+                 --write-out '%{http_code}' "$base/auth/v1/health" >"$journal_code" 2>"$journal_erreur"; then
+              sante="$(cat "$journal_code")"
+            else
+              sante="échec ($(raison "$?"))"
+            fi
+            echo "Point de santé public /auth/v1/health : $sante"
+            case "$sante" in
+              200)
+                echo "::error::Le projet répond sur son point de santé mais pas sur l'API REST. Vérifiez dans Supabase que l'API REST est activée et que la table « clients » existe." ;;
+              *)
+                echo "::error::Le projet est injoignable dans son ensemble. Deux causes possibles : (1) il est en pause — réveillez-le une fois dans le tableau de bord Supabase, les exécutions suivantes l'empêcheront de se rendormir ; (2) le secret VITE_SUPABASE_URL ne pointe pas le bon projet — recopiez l'adresse depuis Supabase → Project Settings → Data API." ;;
+            esac
+          else
+            echo "::error::La base n'a jamais répondu correctement après 3 tentatives (dernier code : $code)."
+          fi
+          exit 1

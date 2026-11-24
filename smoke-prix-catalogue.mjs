@@ -4,7 +4,7 @@
 import { chromium } from 'playwright'
 import { readFileSync, rmSync, existsSync } from 'node:fs'
 
-const base = 'http://localhost:4173/Claude/claude/construction-sme-app-rc82di/#'
+const base = (process.env.APP_BASE || 'http://localhost:4173/constructpro/') + '#'
 const dossier = '/tmp/claude-0/-home-user-Claude/9fa53caa-9b0c-53ae-97c0-7e552c4e54eb/scratchpad/prix'
 const errors = []
 

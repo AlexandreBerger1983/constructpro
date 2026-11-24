@@ -3,7 +3,7 @@
 // approbation, changement de statut, ajustement de stock, recherche globale.
 import { chromium } from 'playwright'
 
-const base = 'http://localhost:4173/Claude/claude/construction-sme-app-rc82di/#'
+const base = (process.env.APP_BASE || 'http://localhost:4173/constructpro/') + '#'
 const errors = []
 
 const browser = await chromium.launch({ executablePath: process.env.PW_CHROMIUM || undefined })

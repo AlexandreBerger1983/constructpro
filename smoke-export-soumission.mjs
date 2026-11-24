@@ -6,7 +6,7 @@ import { chromium } from 'playwright'
 import { mkdirSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 
-const base = 'http://localhost:4173/Claude/claude/construction-sme-app-rc82di/#'
+const base = (process.env.APP_BASE || 'http://localhost:4173/constructpro/') + '#'
 const OUT = '/tmp/export-soum'
 mkdirSync(OUT, { recursive: true })
 

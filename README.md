@@ -1,8 +1,46 @@
 # ConstructPro — Gestion PME Construction
 
+**En ligne :** https://alexandreberger1983.github.io/constructpro/
+
 Application web de gestion pour PME en construction au Québec :
 projets, soumissions, facturation, clients, employés, feuilles de temps,
 matériaux, sous-traitants, calendrier, documents et rapports.
+
+## Déploiement
+
+Le site se publie tout seul sur GitHub Pages à chaque poussée sur `main`
+(`.github/workflows/deploy-pages.yml`). Le chemin de base se déduit du nom
+du dépôt : renommer le dépôt ne demande aucune modification du code.
+
+Deux secrets doivent être définis dans Settings → Secrets and variables →
+Actions pour que l'application atteigne sa base de données :
+
+| Secret | Valeur |
+|---|---|
+| `VITE_SUPABASE_URL` | `https://<projet>.supabase.co` |
+| `VITE_SUPABASE_ANON_KEY` | la clé **anon public** — jamais `service_role` |
+
+Sans eux, l'application fonctionne sur le stockage du navigateur.
+
+Le schéma de la base et ses règles d'accès sont dans `supabase/schema.sql`,
+rejouable sans risque. Une tâche planifiée
+(`.github/workflows/supabase-keepalive.yml`) interroge la base chaque jour
+pour l'empêcher de se mettre en pause.
+
+## Tests
+
+```bash
+npm ci && npm run build
+npx vite preview --port 4173 &          # puis, dans un autre terminal :
+node src/data/*.test.mjs                # moteurs de calcul
+PW_CHROMIUM=/opt/pw-browsers/chromium node smoke.mjs   # parcours navigateur
+```
+
+Les parcours navigateur visent `http://localhost:4173/constructpro/` par
+défaut ; `APP_BASE` permet de viser ailleurs. Trois d'entre eux
+(`smoke-connexion`, `smoke-donnees-supabase`, `smoke-demonstration`)
+demandent une seconde construction avec de fausses clés Supabase, servie
+sur le port 4174, et suivent `APP_BASE_AUTH`.
 
 ## Démarrer
 

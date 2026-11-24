@@ -5,7 +5,7 @@
 // ressortir de cette base, et pas du stockage local.
 import { chromium } from 'playwright'
 
-const base = 'http://localhost:4174/Claude/claude/construction-sme-app-rc82di/#'
+const base = (process.env.APP_BASE_AUTH || 'http://localhost:4174/constructpro/') + '#'
 const errors = []
 
 const browser = await chromium.launch({ executablePath: process.env.PW_CHROMIUM || undefined })

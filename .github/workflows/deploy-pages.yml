@@ -134,7 +134,23 @@ jobs:
                 *)  echo "::warning::Rôle inattendu dans la clé : « $role ». Attendu : anon." ;;
               esac ;;
             sb_publishable_*) echo "→ Clé publique (nouveau format) : forme attendue." ;;
-            *) echo "::warning::VITE_SUPABASE_ANON_KEY ne ressemble pas à une clé publique Supabase. Attention à ne jamais utiliser la clé service_role." ;;
+            sb_secret_*)
+              echo "::error::La clé enregistrée est une clé SECRÈTE (sb_secret_…), pas la clé publique."
+              echo "Une clé secrète contourne toutes les règles d'accès. Publiée dans un site statique, elle"
+              echo "est lisible par quiconque ouvre la page : elle donnerait un accès complet à vos données."
+              echo "Déploiement interrompu. Dans Supabase → Project Settings → API Keys, prenez la clé"
+              echo "« publishable » (ou « anon public »), et RÉVOQUEZ la clé secrète si elle a déjà été publiée."
+              exit 1 ;;
+            # Tout le reste échoue au lieu d'avertir. Un simple avertissement a
+            # laissé passer une clé sb_secret_ en production : le format était
+            # inconnu du contrôle, donc toléré. Un secret qu'on ne reconnaît pas
+            # ne doit pas être publié « au cas où ».
+            *)
+              echo "::error::VITE_SUPABASE_ANON_KEY n'a aucune des formes attendues d'une clé publique Supabase"
+              echo "(« eyJ… » avec le rôle anon, ou « sb_publishable_… »)."
+              echo "Déploiement interrompu plutôt que de risquer de publier un secret. Vérifiez le secret dans"
+              echo "Settings → Secrets and variables → Actions."
+              exit 1 ;;
           esac
 
       - name: Construire l'application

@@ -11,6 +11,7 @@
 
 import { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import { supabase, supabaseConfigure } from '../lib/supabase'
+import { messageProfil } from './messageProfil'
 
 const AuthContext = createContext(null)
 
@@ -69,9 +70,7 @@ export function AuthProvider({ children }) {
       .then(({ data, error }) => {
         if (!vivant) return
         if (error) {
-          setErreurProfil(
-            "Le compte est connecté mais son profil est introuvable. Vérifiez que schema.sql a bien été exécuté dans Supabase.",
-          )
+          setErreurProfil(messageProfil(error))
           setProfil(null)
         } else {
           setErreurProfil(null)

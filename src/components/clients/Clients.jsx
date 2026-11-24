@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Search, Phone, Mail, Building2, TrendingUp, Clock, Trash2 } from 'lucide-react'
+import { Plus, Search, Phone, Mail, Building2, TrendingUp, Clock, Trash2, MapPin } from 'lucide-react'
 import { useData } from '../../store/DataContext'
 import { formatCurrency, statusColor } from '../../utils/formatters'
 import FormModal from '../ui/FormModal'
@@ -141,6 +141,15 @@ export default function Clients() {
                   <Mail size={12} className="text-slate-400 flex-shrink-0" />
                   <span className="truncate">{c.email}</span>
                 </a>
+              )}
+              {/* L'adresse ne se tronque pas : c'est là qu'on se rend, et une
+                  adresse coupée à mi-rue ne sert à rien. Elle passe donc à la
+                  ligne, alignée sous son icône. */}
+              {c.address && (
+                <div className="flex items-start gap-2 text-slate-600">
+                  <MapPin size={12} className="text-slate-400 flex-shrink-0 mt-0.5" />
+                  <span className="leading-snug">{c.address}</span>
+                </div>
               )}
             </div>
 

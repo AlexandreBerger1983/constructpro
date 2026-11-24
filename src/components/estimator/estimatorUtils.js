@@ -222,3 +222,34 @@ export const basculerType = (valeur, genre) => {
 
 export const aLeType = (valeur, genre) =>
   typesDepuis(valeur).includes(String(genre ?? '').trim())
+
+// ─── Section « Générale » : des travaux qui traversent les pièces ────────────
+// La peinture, le nettoyage, la gestion de chantier ne se rattachent pas à une
+// pièce en particulier : les ranger dans l'une d'elles fausse la lecture du
+// devis, et les répéter dans chacune multiplie les lignes.
+//
+// La Générale est une pièce virtuelle : elle n'a pas de dimensions propres,
+// ses surfaces sont la SOMME de celles de toutes les pièces du devis. Ajouter
+// « Peinture murs » y donne donc d'emblée la superficie murale de l'ensemble,
+// et la quantité reste modifiable si le travail n'en couvre qu'une partie.
+export const GENERALE_ID = 'generale'
+
+export const PIECE_GENERALE = {
+  id: GENERALE_ID,
+  name: 'Générale',
+  emoji: '🏠',
+}
+
+export const estGenerale = (roomId) => roomId === GENERALE_ID
+
+// Surfaces cumulées de toutes les pièces, dans la même forme que computeRoom.
+export const sommeDesPieces = (rooms = [], unit = 'pi') =>
+  (Array.isArray(rooms) ? rooms : []).reduce((total, piece) => {
+    const c = computeRoom(piece, unit)
+    return {
+      floorArea: +(total.floorArea + c.floorArea).toFixed(2),
+      ceilArea:  +(total.ceilArea  + c.ceilArea).toFixed(2),
+      wallArea:  +(total.wallArea  + c.wallArea).toFixed(2),
+      perimeter: +(total.perimeter + c.perimeter).toFixed(2),
+    }
+  }, { floorArea: 0, ceilArea: 0, wallArea: 0, perimeter: 0 })

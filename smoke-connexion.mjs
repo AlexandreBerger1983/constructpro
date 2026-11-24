@@ -100,6 +100,22 @@ let menuBureau
   await page.waitForSelector('text=Tableau de bord', { timeout: 8000 })
   console.log('OK: le compte bureau entre directement dans l’application')
 
+  // Les initiales doivent être celles du COMPTE, aux deux endroits : la
+  // pastille de l'en-tête affichait « AB » écrit en dur, donc les initiales
+  // du propriétaire rangé dans les Paramètres, même connecté sous un autre
+  // compte.
+  const pastilles = await page.evaluate(() => ({
+    barre: document.querySelector('aside .rounded-full')?.textContent.trim(),
+    entete: [...document.querySelectorAll('header .rounded-full')].pop()?.textContent.trim(),
+  }))
+  console.log('Initiales affichées :', JSON.stringify(pastilles))
+  // Le profil simulé se nomme « Essai » : initiales « ES ».
+  if (pastilles.barre !== 'ES')
+    throw new Error(`la barre affiche « ${pastilles.barre} » au lieu de « ES »`)
+  if (pastilles.entete !== 'ES')
+    throw new Error(`l'en-tête affiche « ${pastilles.entete} » au lieu de « ES » — il ne suit pas le compte connecté`)
+  console.log('OK: les deux pastilles portent les initiales du compte connecté')
+
   menuBureau = await page.locator('aside nav a').allTextContents()
   console.log('Menu bureau :', menuBureau.map(t => t.trim()).join(' · '))
   for (const attendu of ['Soumissions', 'Facturation', 'Paie & Heures', 'Matériaux', 'Clients']) {

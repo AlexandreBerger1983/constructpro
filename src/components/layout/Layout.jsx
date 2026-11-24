@@ -1,6 +1,9 @@
 import { useState, useMemo } from 'react'
 import { Outlet, useLocation, NavLink, useNavigate } from 'react-router-dom'
 import Sidebar from './Sidebar'
+import { initialesCompte } from '../../data/initiales'
+import { useLocalStorage } from '../../hooks/useLocalStorage'
+import { SETTINGS_KEY, DEFAULT_COMPANY_SETTINGS } from '../../data/settingsDefaults'
 import { Bell, Search, LayoutDashboard, Calculator, FolderKanban, Receipt, Menu, X, Users, FileText } from 'lucide-react'
 import { useAuth } from '../../store/AuthContext'
 import { filtrerNavigation } from '../../data/acces'
@@ -108,7 +111,8 @@ const mobileNav = [
 
 export default function Layout() {
   const { data } = useData()
-  const { profil } = useAuth()
+  const { profil, courriel, connecte } = useAuth()
+  const [reglages] = useLocalStorage(SETTINGS_KEY, DEFAULT_COMPANY_SETTINGS)
   const navigate = useNavigate()
   // Même règle que le menu de gauche : la barre du bas ne propose que les
   // écrans ouverts au rôle.
@@ -198,8 +202,14 @@ export default function Layout() {
               </div>
             )}
 
-            <div className="w-8 h-8 rounded-full bg-brand-500 flex items-center justify-center text-white text-xs font-bold cursor-pointer">
-              AB
+            {/* Le compte connecté, pas le propriétaire rangé dans les
+                Paramètres : sous le compte de quelqu'un d'autre, cette
+                pastille affichait les initiales du propriétaire. */}
+            <div
+              className="w-8 h-8 rounded-full bg-brand-500 flex items-center justify-center text-white text-xs font-bold cursor-pointer"
+              title={connecte ? (profil?.nom || courriel) : (reglages.ownerName || 'Propriétaire')}
+            >
+              {initialesCompte({ connecte, profil, courriel, ownerName: reglages.ownerName })}
             </div>
           </div>
         </header>

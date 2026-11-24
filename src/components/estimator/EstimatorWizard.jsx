@@ -16,6 +16,7 @@ import {
   lineTotal, computeTotals, nextQuoteNumber, fromMeters,
   applyMeasureBasis, basisUnit, qtyFactor, BASE_PIECE, BASE_LINEAIRE,
   typesDepuis, basculerType, aLeType,
+  GENERALE_ID, PIECE_GENERALE, estGenerale, sommeDesPieces,
 } from './estimatorUtils'
 import Stepper from './Stepper'
 import RoomQuestionnaire from './RoomQuestionnaire'
@@ -374,13 +375,19 @@ function StepWorks({ draft, update }) {
   const [invSearch, setInvSearch] = useState('')
 
   useEffect(() => {
-    if (!rooms.find(r => r.id === activeRoomId) && rooms.length > 0) {
+    if (!estGenerale(activeRoomId) && !rooms.find(r => r.id === activeRoomId) && rooms.length > 0) {
       setActiveRoomId(rooms[0].id)
     }
   }, [rooms, activeRoomId])
 
-  const activeRoom = rooms.find(r => r.id === activeRoomId)
-  const roomCalc = activeRoom ? computeRoom(activeRoom, unit) : null
+  // La Générale est une pièce virtuelle : pas de dimensions propres, mais les
+  // surfaces cumulées de toutes les pièces du devis. Un travail qui traverse
+  // la maison y prend donc d'emblée la bonne superficie.
+  const surGenerale = estGenerale(activeRoomId)
+  const activeRoom = surGenerale ? PIECE_GENERALE : rooms.find(r => r.id === activeRoomId)
+  const roomCalc = surGenerale
+    ? sommeDesPieces(rooms, unit)
+    : (activeRoom ? computeRoom(activeRoom, unit) : null)
   const roomItems = items.filter(it => it.roomId === activeRoomId)
 
   const itemInRoom = (catalogId) => roomItems.find(it => it.catalogId === catalogId)
@@ -441,8 +448,10 @@ function StepWorks({ draft, update }) {
   // converti d'autant, pour que passer des pieds aux mètres ne change jamais
   // le total — seul le changement de base le fait.
   const setItemBasis = (item, base) => {
-    const room = rooms.find(r => r.id === item.roomId)
-    if (!room) return
+    const surfaces = estGenerale(item.roomId)
+      ? sommeDesPieces(rooms, unit)
+      : (() => { const r = rooms.find(x => x.id === item.roomId); return r ? computeRoom(r, unit) : null })()
+    if (!surfaces) return
     const cat = catalogue.find(c => c.id === item.catalogId)
     // Prix métriques d'origine, pour ne pas empiler les conversions si l'on
     // bascule plusieurs fois d'une base à l'autre.
@@ -452,7 +461,7 @@ function StepWorks({ draft, update }) {
 
     const res = applyMeasureBasis({
       base,
-      roomCalc: computeRoom(room, unit),
+      roomCalc: surfaces,
       unit,
       naturalKey: cat?.autoQty ?? 'floorArea',
       matM,
@@ -598,9 +607,9 @@ function StepWorks({ draft, update }) {
         </p>
       </div>
 
-      {/* Onglets pièces */}
+      {/* Onglets pièces, puis la Générale */}
       <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
-        {rooms.map(r => {
+        {[...rooms, PIECE_GENERALE].map(r => {
           const count = items.filter(it => it.roomId === r.id).length
           return (
             <button
@@ -736,13 +745,28 @@ function StepWorks({ draft, update }) {
         </div>
       )}
 
-      {/* Questionnaire détaillé (formulaire Oui/Non comme sur papier) */}
-      <button
+      {/* Un mot sur ce qu'est la Générale : sans explication, un utilisateur
+          se demande pourquoi la superficie y est si grande. */}
+      {surGenerale && (
+        <div className="p-3.5 rounded-2xl bg-blue-50 border border-blue-200 text-sm text-blue-800 leading-relaxed">
+          <p className="font-semibold mb-1">🏠 Travaux sur plusieurs pièces</p>
+          <p>
+            Ce qui ne se rattache pas à une pièce en particulier — peinture de
+            tout le logement, nettoyage, gestion de chantier. Les superficies
+            proposées ici sont le <strong>total de vos {rooms.length} pièce{rooms.length > 1 ? 's' : ''}</strong> ;
+            ajustez la quantité si le travail n'en couvre qu'une partie.
+          </p>
+        </div>
+      )}
+
+      {/* Questionnaire détaillé (formulaire Oui/Non comme sur papier).
+          Propre à une pièce : sans objet sur la Générale. */}
+      {!surGenerale && <button
         onClick={() => setShowQuestionnaire(true)}
         className="w-full flex items-center justify-center gap-2.5 py-4 rounded-2xl bg-brand-500 hover:bg-brand-600 active:bg-brand-700 text-white font-bold shadow-sm transition-colors"
       >
         📋 Questionnaire détaillé — {questionnaireForRoom(activeRoom, questionnaireRates, unit).title}
-      </button>
+      </button>}
 
       {/* Ajouts manuels : sans passer par la superficie de la pièce */}
       <div className="grid grid-cols-2 gap-3">
@@ -946,7 +970,9 @@ function StepQuote({ draft, update, onSave }) {
     ? items.reduce((s, it) => s + (parseFloat(it.qty) || 0) * (parseFloat(it.unitLabor) || 0) / laborRate, 0)
     : 0
 
-  const byRoom = rooms
+  // La Générale figure au devis comme une pièce de plus, en dernier : ses
+  // travaux traversent le chantier, ils se lisent après le détail par pièce.
+  const byRoom = [...rooms, PIECE_GENERALE]
     .map(r => ({
       room: r,
       items: items.filter(it => it.roomId === r.id),
@@ -1125,8 +1151,11 @@ function StepQuote({ draft, update, onSave }) {
         </div>
 
         {byRoom.map(({ room, items: roomItems }) => {
-          const calc = computeRoom(room, unit)
-          const dims = `${room.length} × ${room.width} ${unit}, plafond ${room.height} ${unit}`
+          // La Générale n'a pas de dimensions propres : afficher
+          // « undefined × undefined » serait pire que de ne rien dire.
+          const dims = estGenerale(room.id)
+            ? `travaux sur l'ensemble des ${rooms.length} pièce${rooms.length > 1 ? 's' : ''}`
+            : `${room.length} × ${room.width} ${unit}, plafond ${room.height} ${unit}`
           return (
             <div key={room.id} className="mb-5">
               <div className="flex items-center justify-between mb-2 bg-brand-50 rounded-lg px-3 py-2">

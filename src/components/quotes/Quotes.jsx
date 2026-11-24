@@ -59,7 +59,13 @@ function QuoteList() {
         </div>
         <div className="card text-center">
           <p className="text-2xl font-bold text-brand-600">
-            {Math.round(quotes.filter(q => q.status === 'Acceptée').length / quotes.filter(q => q.status !== 'Brouillon').length * 100)}%
+            {/* Sans aucune soumission sortie du brouillon, la division
+                donnait « NaN% ». Un tiret dit la même chose sans effrayer. */}
+            {(() => {
+              const sorties = quotes.filter(q => q.status !== 'Brouillon').length
+              if (sorties === 0) return '—'
+              return `${Math.round(quotes.filter(q => q.status === 'Acceptée').length / sorties * 100)} %`
+            })()}
           </p>
           <p className="text-xs text-slate-500 mt-1">Taux de conversion</p>
         </div>

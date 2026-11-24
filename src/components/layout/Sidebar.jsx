@@ -5,6 +5,7 @@ import {
   ChevronRight, Building2, Bell, Settings, Calculator, Wallet, LogOut,
 } from 'lucide-react'
 import { useLocalStorage } from '../../hooks/useLocalStorage'
+import { initialesCompte } from '../../data/initiales'
 import { useAuth } from '../../store/AuthContext'
 import { filtrerNavigation, estChantier, ECRANS_BUREAU } from '../../data/acces'
 import { useData } from '../../store/DataContext'
@@ -40,9 +41,7 @@ export default function Sidebar({ collapsed, setCollapsed }) {
   const urgentAlerts = computeAlerts(data).filter(a => a.type === 'danger' || a.type === 'warning').length
   const companyName = settings.companyName || 'ConstructPro'
   const ownerName = settings.ownerName || 'Propriétaire'
-  const initials = (settings.ownerName || 'AB').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
-  const initialesCompte = ((profil?.nom || courriel || '?').split(/[\s.@]+/).filter(Boolean).map(w => w[0]).join('') || '?')
-    .slice(0, 2).toUpperCase()
+  const initiales = initialesCompte({ connecte, profil, courriel, ownerName: settings.ownerName })
 
   return (
     <aside className={clsx(
@@ -115,7 +114,7 @@ export default function Sidebar({ collapsed, setCollapsed }) {
         )}
         <div className={clsx('flex items-center gap-3 px-3 py-2', collapsed && 'justify-center')}>
           <div className="w-7 h-7 rounded-full bg-brand-500/30 flex items-center justify-center text-brand-300 text-xs font-bold flex-shrink-0">
-            {connecte ? initialesCompte : initials}
+            {initiales}
           </div>
           {!collapsed && (
             <div className="min-w-0 flex-1">

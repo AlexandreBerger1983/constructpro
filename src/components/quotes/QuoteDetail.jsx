@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Printer, Send, CheckCircle, Pencil, Save, X, Plus, Trash2, FileSpreadsheet, FileText, Eye, EyeOff } from 'lucide-react'
+import { ArrowLeft, Printer, Send, CheckCircle, Pencil, Save, X, Plus, Trash2, FileSpreadsheet, FileText, Eye, EyeOff, FolderKanban } from 'lucide-react'
 import { useData } from '../../store/DataContext'
 import { formatCurrency, formatDate, statusColor } from '../../utils/formatters'
 import { useLocalStorage, readStorage } from '../../hooks/useLocalStorage'
@@ -10,6 +10,7 @@ import QuoteLegalFooter from './QuoteLegalFooter'
 import { assurerClient } from '../../data/clientsAuto'
 import { MENTION_SANS_PRIX, estSansPrix } from '../../data/tarification'
 import { NIVEAUX, DETAILLEE, niveauValide, lignesAAfficher } from '../../data/niveauDetail'
+import { projetDeLaSoumission, projetsProposables, projetDepuisSoumission } from '../../data/lienProjets'
 import clsx from 'clsx'
 
 // Totaux calculés à partir des lignes (ou du sous-total manuel si aucune ligne)
@@ -201,6 +202,20 @@ export default function QuoteDetail() {
 
   // Le niveau vit sur la soumission : chacune se présente comme on l'a décidé
   // pour ce client-là, et le choix se retrouve à la réouverture.
+  // Le chantier auquel cette soumission se rapporte. Le lien est porté par la
+  // soumission : un projet peut naître de plusieurs offres, une offre ne sert
+  // qu'un chantier.
+  const projetLie = projetDeLaSoumission(data.projects, quote)
+  const rattacher = (id) =>
+    update('quotes', quote.id, { projectId: id === '' ? null : Number(id) })
+  // Créer le chantier à partir de la soumission, puis l'y rattacher d'un seul
+  // geste : séparer les deux laisserait un projet orphelin si l'on s'arrête
+  // au milieu.
+  const creerLeProjet = () => {
+    const cree = add('projects', projetDepuisSoumission(quote, data.projects))
+    if (cree?.id) update('quotes', quote.id, { projectId: cree.id })
+  }
+
   const niveau = niveauValide(quote.niveauDetail)
   const changerNiveau = (n) => update('quotes', quote.id, { niveauDetail: n })
   // En modification on montre toujours tout : on ne corrige pas ce qu'on ne
@@ -269,6 +284,35 @@ export default function QuoteDetail() {
           <p className="mt-2 text-sm text-red-600">
             L'export n'a pas fonctionné : {exportError}. Réessayez, ou utilisez « Imprimer ».
           </p>
+        )}
+
+        {/* Chantier rattaché. Hors du document imprimé : c'est un repère de
+            suivi interne, le client n'a pas à le lire sur son devis. */}
+        {!editing && (
+          <div className="mt-3 flex items-center gap-3 flex-wrap">
+            <span className="text-sm font-semibold text-slate-600">Projet :</span>
+            <select
+              value={quote.projectId ?? ''}
+              onChange={e => rattacher(e.target.value)}
+              aria-label="Projet rattaché à cette soumission"
+              className="input w-auto text-sm py-1.5"
+            >
+              <option value="">— Aucun chantier rattaché —</option>
+              {projetsProposables(data.projects, quote).map(p => (
+                <option key={p.id} value={p.id}>{p.code} — {p.name}</option>
+              ))}
+            </select>
+            {projetLie ? (
+              <Link to={`/projets/${projetLie.id}`} className="btn-secondary text-sm py-1.5">
+                <FolderKanban size={14} /> Ouvrir le chantier
+              </Link>
+            ) : (
+              <button onClick={creerLeProjet} className="btn-secondary text-sm py-1.5"
+                title="Crée un chantier reprenant le client, le titre et le montant de cette soumission">
+                <Plus size={14} /> Créer le chantier
+              </button>
+            )}
+          </div>
         )}
 
         {/* Niveau de détail. Hors modification seulement : on ne corrige pas

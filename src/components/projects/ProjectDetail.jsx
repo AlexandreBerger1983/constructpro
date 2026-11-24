@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { ArrowLeft, MapPin, User, Calendar, CheckCircle, Circle, Clock, Phone, Mail } from 'lucide-react'
+import { ArrowLeft, MapPin, User, Calendar, CheckCircle, Circle, Clock, Phone, Mail, FileText } from 'lucide-react'
 import { useData } from '../../store/DataContext'
+import { soumissionsDuProjet, totauxDesSoumissions } from '../../data/lienProjets'
 import { formatCurrency, formatDate, statusColor, progressColor, budgetHealthColor } from '../../utils/formatters'
 import FormModal from '../ui/FormModal'
 import clsx from 'clsx'
@@ -157,6 +158,49 @@ export default function ProjectDetail() {
           </div>
         </div>
       </div>
+
+      {/* Soumissions rattachées. D'où vient ce chantier, et ce qu'il
+          représente comme offres — la refusée n'y compte pas, elle n'engage
+          rien et gonflerait le montant d'offres que le client a écartées. */}
+      {(() => {
+        const soumissions = soumissionsDuProjet(data.quotes, project.id)
+        if (soumissions.length === 0) return null
+        const t = totauxDesSoumissions(soumissions)
+        return (
+          <div className="card p-0 overflow-hidden">
+            <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between gap-3 flex-wrap">
+              <h3 className="font-semibold text-slate-700 text-sm flex items-center gap-2">
+                <FileText size={15} className="text-slate-400" />
+                Soumissions de ce chantier
+                <span className="text-slate-400 font-normal">({t.nombre})</span>
+              </h3>
+              <p className="text-sm">
+                <span className="text-slate-500">Accepté : </span>
+                <span className="font-bold text-emerald-600">{formatCurrency(t.totalAccepte)}</span>
+                {t.total !== t.totalAccepte && (
+                  <span className="text-slate-400"> sur {formatCurrency(t.total)} soumis</span>
+                )}
+              </p>
+            </div>
+            <div className="divide-y divide-slate-50">
+              {soumissions.map(q => (
+                <Link key={q.id} to={`/soumissions/${q.id}`}
+                  className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50 transition-colors">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-slate-800 text-sm truncate">{q.number}</p>
+                    <p className="text-xs text-slate-500 truncate">{q.title}</p>
+                  </div>
+                  <span className={clsx('badge text-[10px] flex-shrink-0', statusColor[q.status])}>{q.status}</span>
+                  <p className={clsx('font-bold text-sm w-24 text-right flex-shrink-0',
+                    q.status === 'Refusée' ? 'text-slate-300 line-through' : 'text-slate-800')}>
+                    {formatCurrency(q.total)}
+                  </p>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )
+      })()}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Budget */}
